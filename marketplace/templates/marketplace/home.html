@@ -1,0 +1,104 @@
+{% extends "marketplace/base.html" %}
+{% block title %}Coconut Wireless – Find Local Tradies in Fiji{% endblock %}
+
+{% block extra_css %}
+<style>
+.hero{background:linear-gradient(135deg,var(--blue) 0%,#0096c7 100%);color:var(--white);padding:64px 0 52px;}
+.hero-inner{max-width:1200px;margin:0 auto;padding:0 20px;}
+.hero h1{font-size:2.5rem;margin:0 0 14px;line-height:1.1;max-width:580px;}
+.hero p{font-size:1.05rem;margin:0 0 28px;color:rgba(255,255,255,.88);max-width:520px;}
+.search-card{background:var(--white);border-radius:16px;box-shadow:0 8px 30px rgba(0,80,120,.18);padding:20px;max-width:680px;}
+.search-card form{display:flex;gap:10px;flex-wrap:wrap;}
+.search-card input,.search-card select{flex:1;min-width:150px;padding:12px 14px;border-radius:10px;border:1.5px solid #cce4ef;font-size:.94rem;outline:none;}
+.search-card input:focus,.search-card select:focus{border-color:var(--blue);}
+.search-card button{background:var(--blue);color:var(--white);border:none;padding:12px 22px;border-radius:10px;font-size:.94rem;font-weight:700;cursor:pointer;}
+.section{padding:48px 0;}
+.grid-4{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));}
+.grid-3{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));}
+.svc-card{background:var(--white);border-radius:16px;padding:22px;box-shadow:0 4px 18px rgba(0,80,120,.08);cursor:pointer;text-decoration:none;display:block;color:inherit;transition:box-shadow .2s;}
+.svc-card:hover{box-shadow:0 8px 28px rgba(0,80,120,.14);}
+.svc-icon{font-size:1.9rem;margin-bottom:10px;}
+.svc-card h3{margin:0 0 6px;font-size:1rem;}
+.svc-card p{margin:0;color:var(--muted);font-size:.88rem;line-height:1.6;}
+.step-num{width:36px;height:36px;border-radius:50%;background:var(--blue);color:var(--white);display:flex;align-items:center;justify-content:center;font-weight:700;margin-bottom:12px;}
+.cta-band{background:var(--blue);color:var(--white);text-align:center;padding:50px 20px;}
+.cta-band h2{font-size:1.7rem;margin-bottom:12px;}
+.cta-band p{margin-bottom:24px;opacity:.88;}
+.cta-pair{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;}
+.cta-btn-w{padding:13px 26px;background:var(--white);color:var(--blue);border:none;border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;text-decoration:none;}
+.cta-btn-o{padding:13px 26px;background:transparent;color:var(--white);border:2px solid var(--white);border-radius:12px;font-size:1rem;font-weight:700;cursor:pointer;text-decoration:none;}
+@media(max-width:600px){.hero h1{font-size:1.8rem;}.search-card form{flex-direction:column;}}
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="hero-inner">
+    <h1>Find trusted local tradies in Fiji</h1>
+    <p>Post a task, compare quotes from verified professionals, and book the right tradie in minutes.</p>
+    <div class="search-card">
+      <form action="{% url 'browse_tasks' %}" method="get">
+        <input type="text" name="q" placeholder="What service do you need?">
+        <select name="town">
+          <option value="">All towns</option>
+          <option>Suva</option>
+          <option>Nadi</option>
+          <option>Lautoka</option>
+          <option>Nausori</option>
+          <option>Labasa</option>
+        </select>
+        <button type="submit">Search tradies</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<main>
+  <div class="container">
+    <section class="section">
+      <h2 class="section-title">Popular services</h2>
+      <div class="grid-4">
+        <a href="{% url 'browse_tasks' %}?category=plumbing" class="svc-card"><div class="svc-icon">🔧</div><h3>Plumbing</h3><p>Leak repairs, taps, hot water systems and bathroom work.</p></a>
+        <a href="{% url 'browse_tasks' %}?category=electrical" class="svc-card"><div class="svc-icon">⚡</div><h3>Electrical</h3><p>Wiring, lighting, switchboard upgrades and inspections.</p></a>
+        <a href="{% url 'browse_tasks' %}?category=cleaning" class="svc-card"><div class="svc-icon">🧹</div><h3>Cleaning</h3><p>Home, office and end-of-lease cleaning across Fiji.</p></a>
+        <a href="{% url 'browse_tasks' %}?category=gardening" class="svc-card"><div class="svc-icon">🌿</div><h3>Gardening</h3><p>Lawn mowing, landscaping and outdoor maintenance.</p></a>
+        <a href="{% url 'browse_tasks' %}?category=carpentry" class="svc-card"><div class="svc-icon">🪚</div><h3>Carpentry</h3><p>Shelving, decking, furniture assembly and repairs.</p></a>
+        <a href="{% url 'browse_tasks' %}?category=painting" class="svc-card"><div class="svc-icon">🎨</div><h3>Painting</h3><p>Interior and exterior painting and surface prep.</p></a>
+        <a href="{% url 'browse_tasks' %}?category=aircon" class="svc-card"><div class="svc-icon">❄️</div><h3>Air Conditioning</h3><p>Install, service and repair split systems.</p></a>
+        <a href="{% url 'browse_tasks' %}?category=removalist" class="svc-card"><div class="svc-icon">🚛</div><h3>Removalists</h3><p>Local and inter-island moving services, big or small.</p></a>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">How it works</h2>
+      <div class="grid-3">
+        <div class="card"><div class="step-num">1</div><h3>Post a task</h3><p>Describe your job, set a budget, and choose when you need it done.</p></div>
+        <div class="card"><div class="step-num">2</div><h3>Choose your tradie</h3><p>Receive quotes from verified local tradies. Compare ratings and price.</p></div>
+        <div class="card"><div class="step-num">3</div><h3>Get it done</h3><p>Book the job, communicate via messages, and review when complete.</p></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+{% if sponsors %}
+<div class="container" style="padding:0 20px 28px;">
+  <p style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 10px;">Sponsored</p>
+  <div style="display:flex;gap:16px;flex-wrap:wrap;">
+    {% for s in sponsors %}
+    <a href="{{ s.destination_url }}" target="_blank" rel="noopener sponsored" title="{{ s.business_name }}" style="flex:1;min-width:200px;">
+      <img src="{{ s.banner_image.url }}" alt="{{ s.business_name }}" style="width:100%;border-radius:12px;display:block;">
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="cta-band">
+  <h2>Ready to get started?</h2>
+  <p>Join thousands of Fijians using Coconut Wireless every day.</p>
+  <div class="cta-pair">
+    <a href="{% url 'register_client' %}" class="cta-btn-w">I need a tradie</a>
+    <a href="{% url 'register_tradie' %}" class="cta-btn-o">I'm a tradie</a>
+  </div>
+</div>
+{% endblock %}

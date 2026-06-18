@@ -1,0 +1,189 @@
+{% extends "marketplace/base.html" %}
+{% block title %}Tradie Dashboard – Coconut Wireless{% endblock %}
+
+{% block extra_css %}
+<style>
+.app-body{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 62px);}
+.sidebar{background:var(--white);border-right:1px solid #dde8ef;padding:22px 0;}
+.sb-user{padding:14px 18px 18px;border-bottom:1px solid #dde8ef;margin-bottom:10px;}
+.sb-av{width:42px;height:42px;border-radius:50%;background:var(--blue);color:var(--white);display:flex;align-items:center;justify-content:center;font-weight:700;margin-bottom:9px;}
+.sb-name{font-weight:700;font-size:.92rem;}
+.sb-role{font-size:.75rem;color:var(--muted);}
+.sb-lbl{font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:0 18px;margin-bottom:4px;margin-top:4px;}
+.sb-link{display:flex;align-items:center;gap:9px;padding:9px 18px;font-size:.87rem;color:var(--text);text-decoration:none;transition:background .15s;}
+.sb-link:hover{background:var(--blue-light);}
+.sb-link.active{background:var(--blue-light);color:var(--blue);font-weight:700;border-right:3px solid var(--blue);}
+.sb-link .icon{width:20px;text-align:center;}
+.main{padding:26px 28px 50px;}
+.page-title{font-size:1.4rem;font-weight:700;margin:0 0 4px;}
+.page-sub{color:var(--muted);font-size:.9rem;margin:0 0 22px;}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:13px;margin-bottom:26px;}
+.stat-card{background:var(--white);border-radius:13px;padding:16px;box-shadow:0 3px 14px rgba(0,80,120,.07);}
+.stat-num{font-size:1.7rem;font-weight:800;color:var(--blue);}
+.stat-lbl{font-size:.78rem;color:var(--muted);margin-top:2px;}
+.stat-delta{font-size:.75rem;color:var(--green);margin-top:3px;}
+.sec-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;margin-top:22px;}
+.sec-hdr h2{font-size:1.02rem;margin:0;}
+.job-row{background:var(--white);border-radius:13px;box-shadow:0 3px 12px rgba(0,80,120,.07);padding:14px 17px;margin-bottom:9px;display:flex;justify-content:space-between;align-items:center;gap:12px;}
+.job-title{font-weight:700;font-size:.9rem;margin-bottom:2px;}
+.job-meta{font-size:.78rem;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;}
+.job-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;}
+.nearby{background:var(--white);border-radius:13px;box-shadow:0 3px 12px rgba(0,80,120,.07);padding:14px 17px;margin-bottom:9px;text-decoration:none;color:inherit;display:block;transition:box-shadow .2s;}
+.nearby:hover{box-shadow:0 7px 22px rgba(0,80,120,.13);}
+.nearby-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+footer{display:none;}
+@media(max-width:760px){.app-body{grid-template-columns:1fr;}.sidebar{border-right:none;border-bottom:1px solid #dde8ef;}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="app-body">
+  <aside class="sidebar">
+    <div class="sb-user">
+      <div class="sb-av">{{ user.initials }}</div>
+      <div class="sb-name">{{ user.first_name }} {{ user.last_name }}</div>
+      <div class="sb-role">Tradie · {{ user.town }}</div>
+    </div>
+    <div class="sb-lbl">Work</div>
+    <a href="{% url 'tradie_dashboard' %}" class="sb-link active"><span class="icon">🏠</span>Dashboard</a>
+    <a href="{% url 'browse_tasks' %}" class="sb-link"><span class="icon">🔍</span>Find tasks</a>
+    {% if user.pk %}<a href="{% url 'tradie_profile' user.pk %}" class="sb-link"><span class="icon">👤</span>My profile</a>{% endif %}
+    <div class="sb-lbl" style="margin-top:10px;">Account</div>
+    <a href="{% url 'inbox' %}" class="sb-link"><span class="icon">💬</span>Messages</a>
+    <a href="{% url 'billing' %}" class="sb-link"><span class="icon">🧾</span>Billing</a>
+    <a href="{% url 'logout' %}" class="sb-link"><span class="icon">🚪</span>Log out</a>
+    {% if sponsors %}
+    <div style="padding:14px 16px;">
+      <p style="font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px;">Sponsored</p>
+      {% for s in sponsors %}
+      <a href="{{ s.destination_url }}" target="_blank" rel="noopener sponsored" title="{{ s.business_name }}">
+        <img src="{{ s.banner_image.url }}" alt="{{ s.business_name }}" style="width:100%;border-radius:8px;display:block;{% if not forloop.last %}margin-bottom:8px;{% endif %}">
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </aside>
+
+  <main class="main">
+    <div class="page-title">Good day, {{ user.first_name }} 👋</div>
+    <p class="page-sub">
+      {% with pc=pending_quotes|length ac=accepted_quotes|length %}
+        You have {{ pc }} pending quote{{ pc|pluralize }} and {{ nearby_tasks|length }} new task{{ nearby_tasks|length|pluralize }} near you.
+      {% endwith %}
+    </p>
+
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-num">{{ pending_quotes|length }}</div><div class="stat-lbl">Quotes pending</div></div>
+      <div class="stat-card"><div class="stat-num">{{ accepted_quotes|length }}</div><div class="stat-lbl">Active jobs</div></div>
+      <div class="stat-card"><div class="stat-num">{{ completed_tasks|length }}</div><div class="stat-lbl">Jobs completed</div></div>
+      <div class="stat-card"><div class="stat-num">{{ review_count }}</div><div class="stat-lbl">Reviews received</div></div>
+    </div>
+
+    {% if pending_quotes %}
+    <div class="sec-hdr"><h2>My quotes – awaiting reply</h2><a href="{% url 'browse_tasks' %}" class="btn btn-primary btn-sm">Find more tasks →</a></div>
+    {% for q in pending_quotes %}
+    <div class="job-row">
+      <div>
+        <div class="job-title"><a href="{% url 'task_detail' q.task.pk %}" style="text-decoration:none;color:inherit;">{{ q.task.title }}</a></div>
+        <div class="job-meta">
+          <span>{{ q.task.get_category_display }}</span>
+          <span>📍 {{ q.task.town }}</span>
+          <span>My quote: FJD ${{ q.price }}</span>
+          <span>Submitted {{ q.created_at|timesince }} ago</span>
+        </div>
+      </div>
+      <div class="job-right">
+        <span class="chip chip-pending">Awaiting reply</span>
+        <a href="{% url 'task_detail' q.task.pk %}" class="btn btn-sm" style="background:#f0f5f8;color:var(--blue);">View task</a>
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if accepted_quotes %}
+    <div class="sec-hdr" style="margin-top:22px;"><h2>Accepted – active jobs</h2></div>
+    {% for q in accepted_quotes %}
+    <div class="job-row">
+      <div>
+        <div class="job-title"><a href="{% url 'task_detail' q.task.pk %}" style="text-decoration:none;color:inherit;">{{ q.task.title }}</a></div>
+        <div class="job-meta">
+          <span>{{ q.task.get_category_display }}</span>
+          <span>📍 {{ q.task.town }}</span>
+          <span>Client: {{ q.task.client.first_name }}</span>
+        </div>
+      </div>
+      <div class="job-right">
+        <span class="chip chip-accepted">Accepted</span>
+        <span class="fw-bold text-blue">FJD ${{ q.price }}</span>
+        <a href="{% url 'conversation' q.task.pk q.task.client.pk %}" class="btn btn-sm" style="background:#f0f5f8;color:var(--blue);">Message client</a>
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if completed_tasks %}
+    <div class="sec-hdr" style="margin-top:22px;"><h2>Completed jobs</h2></div>
+    {% for t in completed_tasks %}
+    <div class="job-row">
+      <div>
+        <div class="job-title"><a href="{% url 'task_detail' t.pk %}" style="text-decoration:none;color:inherit;">{{ t.title }}</a></div>
+        <div class="job-meta"><span>{{ t.get_category_display }}</span><span>📍 {{ t.town }}</span><span>Client: {{ t.client.first_name }}</span></div>
+      </div>
+      <div class="job-right">
+        <span class="chip chip-completed">Done</span>
+        <a href="{% url 'task_detail' t.pk %}" class="btn btn-sm" style="background:#f0f5f8;color:var(--blue);">View</a>
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if appointments %}
+    <div class="sec-hdr" style="margin-top:22px;"><h2>Quoting appointments</h2></div>
+    {% for appt in appointments %}
+    <div class="job-row">
+      <div>
+        <div class="job-title"><a href="{% url 'task_detail' appt.task.pk %}" style="text-decoration:none;color:inherit;">{{ appt.task.title }}</a></div>
+        <div class="job-meta">
+          <span>📍 {{ appt.task.town }}</span>
+          <span>Client: {{ appt.client.first_name }}</span>
+          {% if appt.selected_slot %}
+            <span>📅 Confirmed: {{ appt.selected_slot.proposed_date }} {{ appt.selected_slot.start_time|time:"H:i" }}–{{ appt.selected_slot.end_time|time:"H:i" }}</span>
+          {% else %}
+            <span>{{ appt.slots.count }} time option{{ appt.slots.count|pluralize }} proposed</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="job-right">
+        <span class="chip chip-{{ appt.status }}">{{ appt.get_status_display }}</span>
+        <a href="{% url 'task_detail' appt.task.pk %}" class="btn btn-sm" style="background:#f0f5f8;color:var(--blue);">View</a>
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if nearby_tasks %}
+    <div class="sec-hdr" style="margin-top:22px;"><h2>New tasks near you</h2><a href="{% url 'browse_tasks' %}" class="btn btn-sm" style="background:#f0f5f8;color:var(--blue);">See all →</a></div>
+    {% for t in nearby_tasks %}
+    <a href="{% url 'task_detail' t.pk %}" class="nearby">
+      <div class="nearby-row">
+        <div>
+          <span class="chip chip-open" style="margin-bottom:6px;display:inline-block;">{{ t.get_category_display }}</span>
+          <div class="job-title">{{ t.title }}</div>
+          <div class="job-meta"><span>📍 {{ t.town }}</span><span>Posted {{ t.created_at|timesince }} ago</span><span>{{ t.quote_count }} quote{{ t.quote_count|pluralize }}</span></div>
+        </div>
+        <div class="fw-bold text-blue" style="font-size:1.1rem;white-space:nowrap;">FJD ${{ t.budget }}</div>
+      </div>
+    </a>
+    {% endfor %}
+    {% endif %}
+
+    {% if not pending_quotes and not accepted_quotes and not nearby_tasks %}
+    <div style="text-align:center;padding:50px 20px;color:var(--muted);">
+      <p style="font-size:2rem">🔍</p>
+      <p>No tasks match your service area yet. Browse all open tasks.</p>
+      <a href="{% url 'browse_tasks' %}" class="btn btn-primary">Browse tasks</a>
+    </div>
+    {% endif %}
+  </main>
+</div>
+{% endblock %}

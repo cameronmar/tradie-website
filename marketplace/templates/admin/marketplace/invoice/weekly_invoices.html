@@ -1,0 +1,78 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div id="content-main">
+
+  {% if step == 'select' %}
+  <h1>Create Weekly Invoices</h1>
+  <p>Select a date range to preview which providers have pending platform fees for completed jobs.</p>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="preview">
+    <fieldset class="module aligned">
+      <div class="form-row">
+        <div>
+          <label for="id_period_start">Period start:</label>
+          <input type="date" name="period_start" id="id_period_start" required>
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label for="id_period_end">Period end:</label>
+          <input type="date" name="period_end" id="id_period_end" required>
+        </div>
+      </div>
+    </fieldset>
+    <div class="submit-row">
+      <input type="submit" value="Preview" class="default">
+    </div>
+  </form>
+  {% endif %}
+
+  {% if step == 'preview' %}
+  <h1>Providers with pending platform fees</h1>
+  <p><strong>Period:</strong> {{ period_start }} to {{ period_end }}</p>
+
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="generate">
+    <input type="hidden" name="period_start" value="{{ period_start }}">
+    <input type="hidden" name="period_end" value="{{ period_end }}">
+
+    {% if entries %}
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:6px;border-bottom:1px solid #ccc;">Generate</th>
+          <th style="text-align:left;padding:6px;border-bottom:1px solid #ccc;">Provider</th>
+          <th style="text-align:left;padding:6px;border-bottom:1px solid #ccc;">Email</th>
+          <th style="text-align:right;padding:6px;border-bottom:1px solid #ccc;">Eligible jobs</th>
+          <th style="text-align:right;padding:6px;border-bottom:1px solid #ccc;">Total platform fees</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in entries %}
+        <tr>
+          <td style="padding:6px;border-bottom:1px solid #eee;"><input type="checkbox" name="tradie_ids" value="{{ entry.tradie.pk }}" checked></td>
+          <td style="padding:6px;border-bottom:1px solid #eee;">{{ entry.tradie.full_name }}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;">{{ entry.tradie.email }}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;text-align:right;">{{ entry.fees|length }}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;text-align:right;">FJD ${{ entry.total }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="submit-row">
+      <input type="submit" value="Generate draft invoices" class="default">
+      <a href="{% url 'admin:marketplace_invoice_weekly' %}" class="button cancel-link" style="margin-left:10px;">Start over</a>
+    </div>
+    <p style="margin-top:10px;color:#666;">Draft invoices are created for review only — they are <strong>not</strong> sent automatically. Open each invoice and click "Send Invoice" when ready.</p>
+    {% else %}
+    <p>No providers have eligible pending platform fees in this period.</p>
+    <a href="{% url 'admin:marketplace_invoice_weekly' %}" class="button cancel-link">Start over</a>
+    {% endif %}
+  </form>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,149 @@
+{% extends "marketplace/base.html" %}
+{% block title %}Browse Tasks – Coconut Wireless{% endblock %}
+
+{% block extra_css %}
+<style>
+.search-bar{background:var(--white);border-bottom:1px solid #dde8ef;padding:14px 0;}
+.s-inner{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.s-inner input,.s-inner select{flex:1;min-width:140px;padding:9px 13px;border-radius:10px;border:1.5px solid #cce4ef;font-size:.9rem;outline:none;background:var(--white);}
+.s-inner input:focus,.s-inner select:focus{border-color:var(--blue);}
+.s-inner button{padding:9px 20px;background:var(--blue);color:var(--white);border:none;border-radius:10px;font-size:.9rem;font-weight:700;cursor:pointer;}
+.page-body{display:grid;grid-template-columns:230px 1fr;gap:22px;padding:24px 0 50px;}
+.filters{background:var(--white);border-radius:14px;box-shadow:0 4px 16px rgba(0,80,120,.07);padding:18px;align-self:start;position:sticky;top:16px;}
+.filters h3{font-size:.92rem;font-weight:700;margin:0 0 12px;color:var(--blue);}
+.f-section{margin-bottom:18px;}
+.f-section h4{font-size:.74rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:0 0 8px;}
+.f-opt{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:.86rem;cursor:pointer;}
+.f-opt input{accent-color:var(--blue);}
+.results-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.results-hdr span{font-size:.9rem;color:var(--muted);}
+.task-list{display:flex;flex-direction:column;gap:12px;}
+.tc{background:var(--white);border-radius:14px;box-shadow:0 3px 14px rgba(0,80,120,.07);padding:18px;display:grid;grid-template-columns:1fr auto;gap:14px;cursor:pointer;transition:box-shadow .2s;text-decoration:none;color:inherit;}
+.tc:hover{box-shadow:0 7px 26px rgba(0,80,120,.14);}
+.tc-cat{display:inline-flex;align-items:center;gap:4px;background:var(--blue-light);color:var(--blue);border-radius:20px;padding:3px 10px;font-size:.75rem;font-weight:700;margin-bottom:7px;}
+.tc-title{font-size:1rem;font-weight:700;margin-bottom:5px;}
+.tc-desc{color:var(--muted);font-size:.85rem;margin-bottom:9px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.tc-meta{display:flex;gap:12px;flex-wrap:wrap;font-size:.79rem;color:var(--muted);}
+.tc-right{display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;min-width:100px;}
+.tc-budget{font-size:1.15rem;font-weight:800;color:var(--blue);}
+.tc-currency{font-size:.72rem;color:var(--muted);}
+.empty{text-align:center;padding:50px 20px;color:var(--muted);}
+@media(max-width:760px){.page-body{grid-template-columns:1fr;}.filters{position:static;}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="search-bar">
+  <div class="container">
+    <form class="s-inner" method="get" action="{% url 'browse_tasks' %}">
+      <input type="text" name="q" placeholder="Search tasks by keyword…" value="{{ keyword_filter }}">
+      <select name="category">
+        <option value="">All categories</option>
+        {% for val, label in category_choices %}
+          <option value="{{ val }}" {% if val == category_filter %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <select name="town">
+        <option value="">All towns</option>
+        {% for val, label in town_choices %}
+          <option value="{{ val }}" {% if val == town_filter %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit">Search</button>
+    </form>
+  </div>
+</div>
+
+<div class="container">
+  <div class="page-body">
+    <aside class="filters">
+      <h3>Filters</h3>
+      <div class="f-section">
+        <h4>Category</h4>
+        {% for val, label in category_choices %}
+        <label class="f-opt">
+          <input type="radio" name="cat_r" value="{{ val }}" {% if val == category_filter %}checked{% endif %} onchange="applyFilter('category','{{ val }}')"> {{ label }}
+        </label>
+        {% endfor %}
+        <label class="f-opt"><input type="radio" name="cat_r" value="" {% if not category_filter %}checked{% endif %} onchange="applyFilter('category','')"> All categories</label>
+      </div>
+      <div class="f-section">
+        <h4>Town</h4>
+        {% for val, label in town_choices %}
+        <label class="f-opt">
+          <input type="radio" name="town_r" value="{{ val }}" {% if val == town_filter %}checked{% endif %} onchange="applyFilter('town','{{ val }}')"> {{ label }}
+        </label>
+        {% endfor %}
+        <label class="f-opt"><input type="radio" name="town_r" value="" {% if not town_filter %}checked{% endif %} onchange="applyFilter('town','')"> All towns</label>
+      </div>
+      {% if sponsors %}
+      <div class="sponsor-block">
+        {% for s in sponsors %}
+        <a href="{{ s.destination_url }}" target="_blank" rel="noopener sponsored" title="{{ s.business_name }}">
+          <img src="{{ s.banner_image.url }}" alt="{{ s.business_name }}" style="width:100%;border-radius:10px;margin-top:10px;display:block;">
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </aside>
+
+    <div>
+      <div class="results-hdr">
+        <span>Showing <strong>{{ tasks|length }} task{{ tasks|length|pluralize }}</strong> {% if town_filter %}in {{ town_filter }}{% endif %}</span>
+        {% if user.is_authenticated and user.role == 'client' %}
+          <a href="{% url 'post_task' %}" class="btn btn-primary btn-sm">+ Post a task</a>
+        {% endif %}
+      </div>
+
+      <div class="task-list">
+        {% for task in tasks %}
+        <a href="{% url 'task_detail' task.pk %}" class="tc">
+          <div>
+            <div class="tc-cat">{{ task.get_category_display }}</div>
+            <div class="tc-title">{{ task.title }}</div>
+            <div class="tc-desc">{{ task.description }}</div>
+            <div class="tc-meta">
+              <span>📍 {{ task.town }}</span>
+              {% if task.preferred_date %}<span>📅 {{ task.preferred_date }}</span>{% endif %}
+              <span>💬 {{ task.quote_count }} quote{{ task.quote_count|pluralize }}</span>
+              <span>🕐 {{ task.created_at|timesince }} ago</span>
+            </div>
+            {% if task.materials_responsibility or task.on_site_inspection_required %}
+            <div class="tc-meta" style="margin-top:6px;">
+              {% if task.materials_responsibility %}<span>🧰 {{ task.get_materials_responsibility_display }}</span>{% endif %}
+              {% if task.on_site_inspection_required %}<span>🔍 On-site quote / inspection required</span>{% endif %}
+            </div>
+            {% endif %}
+          </div>
+          <div class="tc-right">
+            <div>
+              <div class="tc-currency">Budget</div>
+              <div class="tc-budget">FJD ${{ task.budget }}</div>
+            </div>
+            <span class="chip chip-open">Open</span>
+          </div>
+        </a>
+        {% empty %}
+        <div class="empty">
+          <p style="font-size:1.5rem">🔍</p>
+          <p>No open tasks match your search.</p>
+          {% if user.is_authenticated and user.role == 'client' %}
+            <a href="{% url 'post_task' %}" class="btn btn-primary btn-sm">Post the first task</a>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function applyFilter(param, val){
+  const url=new URL(window.location.href);
+  if(val) url.searchParams.set(param,val); else url.searchParams.delete(param);
+  window.location.href=url.toString();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends "marketplace/base.html" %}
+{% block title %}Log In – Coconut Wireless{% endblock %}
+
+{% block extra_css %}
+<style>
+main{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px;min-height:70vh;}
+.login-wrap{width:100%;max-width:420px;}
+.login-wrap h1{font-size:1.9rem;margin:0 0 6px;}
+.login-wrap .sub{color:var(--muted);margin:0 0 26px;font-size:.94rem;}
+.login-wrap .sub a{color:var(--blue);text-decoration:none;font-weight:600;}
+.role-tabs{display:flex;background:#eef5f8;border-radius:12px;padding:4px;margin-bottom:22px;}
+.role-tab{flex:1;padding:9px;text-align:center;border-radius:9px;cursor:pointer;font-size:.9rem;color:var(--muted);font-weight:600;border:none;background:none;transition:all .2s;}
+.role-tab.active{background:var(--white);color:var(--blue);box-shadow:0 2px 8px rgba(0,80,120,.1);}
+.forgot{font-size:.82rem;color:var(--blue);text-decoration:none;}
+.divider{display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--muted);font-size:.84rem;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:#dde8ef;}
+.social-btn{width:100%;padding:11px;border:1.5px solid #cce4ef;border-radius:10px;background:var(--white);font-size:.92rem;cursor:pointer;margin-bottom:10px;transition:border-color .2s;}
+.social-btn:hover{border-color:var(--blue);}
+</style>
+{% endblock %}
+
+{% block content %}
+<main>
+  <div class="login-wrap">
+    <h1>Welcome back</h1>
+    <p class="sub">Don't have an account? <a href="{% url 'register_client' %}">Sign up free</a></p>
+
+    <div class="role-tabs">
+      <button class="role-tab active" id="tabClient" onclick="setRole('client')">🏠 Client</button>
+      <button class="role-tab" id="tabTradie" onclick="setRole('tradie')">🔧 Tradie</button>
+    </div>
+
+    <div class="card">
+      <form method="post" action="{% url 'login' %}{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}">
+        {% csrf_token %}
+        <div class="field">
+          <label>Email address</label>
+          {{ form.email }}
+          {% for err in form.email.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+        </div>
+        <div class="field">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+            <label style="margin:0">Password</label>
+            <a href="#" class="forgot">Forgot password?</a>
+          </div>
+          {{ form.password }}
+          {% for err in form.password.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+        </div>
+        {% if form.non_field_errors %}
+          <div class="field-error" style="margin-bottom:12px;">{{ form.non_field_errors }}</div>
+        {% endif %}
+        <button type="submit" class="btn btn-primary" style="width:100%;padding:13px;" id="loginBtn">Log in as Client</button>
+      </form>
+      <div class="divider">or</div>
+      <button class="social-btn" disabled>🌐 Continue with Google (coming soon)</button>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let role='client';
+function setRole(r){
+  role=r;
+  document.querySelectorAll('.role-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(r==='client'?'tabClient':'tabTradie').classList.add('active');
+  document.getElementById('loginBtn').textContent='Log in as '+(r==='client'?'Client':'Tradie');
+}
+</script>
+{% endblock %}

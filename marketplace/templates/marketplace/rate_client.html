@@ -1,0 +1,67 @@
+{% extends "marketplace/base.html" %}
+{% block title %}Job Feedback – Coconut Wireless{% endblock %}
+
+{% block extra_css %}
+<style>
+.rate-page{max-width:680px;margin:32px auto;padding:0 20px 50px;}
+.rate-page h1{font-size:1.6rem;margin:0 0 5px;}
+.rate-page .sub{color:var(--muted);font-size:.92rem;margin:0 0 16px;}
+.priv-banner{background:#fff8e6;border:1px solid #f5a623;border-radius:12px;padding:12px 16px;font-size:.87rem;color:#8a6200;margin-bottom:22px;}
+.crit-card{background:var(--white);border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.08);padding:22px;margin-bottom:14px;}
+.crit-card h2{font-size:1rem;color:var(--blue);margin:0 0 14px;}
+.score-row{display:flex;flex-direction:column;gap:0;}
+.score-opt{display:flex;align-items:flex-start;gap:12px;padding:10px 12px;border-radius:10px;cursor:pointer;border:1.5px solid transparent;transition:all .2s;}
+.score-opt:hover{background:var(--blue-light);}
+.score-opt:has(input:checked){background:var(--blue-light);border-color:var(--blue);}
+.score-opt input[type=radio]{accent-color:var(--blue);flex-shrink:0;margin-top:3px;}
+.score-num{font-size:1.1rem;font-weight:800;color:var(--blue);min-width:20px;}
+.score-body{font-size:.87rem;line-height:1.5;}
+.comment-card{background:var(--white);border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.08);padding:22px;margin-bottom:18px;}
+.comment-card h2{font-size:1rem;color:var(--blue);margin:0 0 12px;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="rate-page">
+  <div class="breadcrumb">
+    <a href="{% url 'task_detail' task.pk %}">← Back to task</a>
+  </div>
+
+  <h1>Job Feedback</h1>
+  <p class="sub">Job: <strong>{{ task.title }}</strong></p>
+
+  <div class="priv-banner">
+    🔒 <strong>This feedback is private.</strong> It will never be shown to {{ task.client.first_name }} or on any public page.
+    It is used only by the Coconut Wireless admin team for dispute resolution and platform improvement.
+  </div>
+
+  <form method="post">
+    {% csrf_token %}
+
+    {% for crit in criteria %}
+    <div class="crit-card">
+      <h2>{{ crit.label }}</h2>
+      <div class="score-row">
+        {% for score, desc in crit.descriptors %}
+        <label class="score-opt">
+          <input type="radio" name="{{ crit.field }}" value="{{ score }}" required>
+          <span class="score-num">{{ score }}</span>
+          <div class="score-body">{{ desc }}</div>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+
+    <div class="comment-card">
+      <h2>Notes <span style="color:var(--muted);font-weight:400">(optional)</span></h2>
+      {{ form.comment }}
+      <div class="hint" style="margin-top:6px;">Only visible to Coconut Wireless admin for dispute handling.</div>
+    </div>
+
+    {% if form.non_field_errors %}<div class="field-error" style="margin-bottom:12px;">{{ form.non_field_errors }}</div>{% endif %}
+
+    <button type="submit" class="btn btn-primary" style="width:100%;padding:13px;font-size:1rem;">Submit private feedback</button>
+  </form>
+</div>
+{% endblock %}

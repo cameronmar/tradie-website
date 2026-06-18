@@ -1,0 +1,114 @@
+{% extends "marketplace/base.html" %}
+{% block title %}Book Quoting Appointment – Coconut Wireless{% endblock %}
+
+{% block extra_css %}
+<style>
+.page-card{max-width:760px;margin:40px auto;padding:24px;background:var(--white);border-radius:16px;box-shadow:0 6px 24px rgba(0,80,120,.08);}
+.page-card h1{font-size:1.4rem;margin-bottom:10px;}
+.field{margin-bottom:16px;}
+.field label{display:block;font-weight:700;margin-bottom:8px;}
+.field .form-input{width:100%;}
+.slot-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-items:start;}
+.slot-grid .field{margin-bottom:0;}
+.btn-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px;}
+.app-card{background:var(--blue-light);border-radius:14px;padding:16px;margin-top:20px;}
+.app-card h2{margin:0 0 14px;font-size:1rem;color:var(--blue);}
+.app-row{background:var(--white);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 2px 12px rgba(0,80,120,.08);}
+.app-row ul{margin:8px 0 0 18px;color:var(--muted);}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="page-card">
+    <h1>Book quoting appointment</h1>
+    <p class="desc-text">Offer the client up to three time slots so they can confirm a quoting appointment without back-and-forth messaging.</p>
+
+    <form method="post">
+      {% csrf_token %}
+      <div class="field">
+        <label>Appointment note (optional)</label>
+        {{ form.appointment_note }}
+      </div>
+
+      <h2 style="margin-top:0.5rem;">Option 1</h2>
+      <div class="slot-grid">
+        <div class="field">
+          <label>Date</label>
+          {{ form.slot_1_date }}
+        </div>
+        <div class="field">
+          <label>Start time</label>
+          {{ form.slot_1_start }}
+        </div>
+        <div class="field">
+          <label>End time</label>
+          {{ form.slot_1_end }}
+        </div>
+      </div>
+
+      <h2>Option 2</h2>
+      <div class="slot-grid">
+        <div class="field">
+          <label>Date</label>
+          {{ form.slot_2_date }}
+        </div>
+        <div class="field">
+          <label>Start time</label>
+          {{ form.slot_2_start }}
+        </div>
+        <div class="field">
+          <label>End time</label>
+          {{ form.slot_2_end }}
+        </div>
+      </div>
+
+      <h2>Option 3</h2>
+      <div class="slot-grid">
+        <div class="field">
+          <label>Date</label>
+          {{ form.slot_3_date }}
+        </div>
+        <div class="field">
+          <label>Start time</label>
+          {{ form.slot_3_start }}
+        </div>
+        <div class="field">
+          <label>End time</label>
+          {{ form.slot_3_end }}
+        </div>
+      </div>
+
+      {% if form.non_field_errors %}
+      <div class="field-error">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="btn-row">
+        <button type="submit" class="btn btn-primary">Send appointment request</button>
+        <a href="{% url 'task_detail' task.pk %}" class="btn btn-outline-blue">Back to task</a>
+      </div>
+    </form>
+
+    {% if existing_appointments %}
+    <div class="app-card">
+      <h2>Your appointment requests</h2>
+      {% for appointment in existing_appointments %}
+      <div class="app-row">
+        <strong>Status:</strong> {{ appointment.get_status_display }}<br>
+        <strong>Requested:</strong> {{ appointment.created_at|date:'j M Y' }}<br>
+        <strong>Requested by:</strong> {{ appointment.provider.full_name }}<br>
+        {% if appointment.appointment_note %}
+        <p>{{ appointment.appointment_note }}</p>
+        {% endif %}
+        <ul>
+          {% for slot in appointment.slots.all %}
+          <li>{{ slot.proposed_date }} {{ slot.start_time|time:'H:i' }}–{{ slot.end_time|time:'H:i' }}{% if slot.is_selected %} (selected){% endif %}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Coconut Wireless{% endblock %}</title>
+<style>
+:root{--blue:#006994;--blue-dark:#004f70;--blue-light:#e6f4f9;--white:#fff;--text:#1a2e3b;--muted:#5a7080;--green:#27ae60;--orange:#e67e22;}
+*{box-sizing:border-box;}
+body{margin:0;font-family:Arial,sans-serif;background:#f4fafd;color:var(--text);}
+a{color:inherit;}
+/* Header */
+header{background:var(--blue);color:var(--white);padding:16px 30px;}
+.hdr{max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;}
+.brand{font-size:1.45rem;font-weight:800;text-decoration:none;color:var(--white);}
+.brand span{color:#a8dff0;}
+nav{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+nav a{color:rgba(255,255,255,.88);text-decoration:none;font-size:.88rem;padding:6px 12px;border-radius:20px;}
+nav a:hover{background:rgba(255,255,255,.15);}
+.btn-nav-outline{border:2px solid var(--white);color:var(--white)!important;border-radius:20px;padding:6px 16px;font-weight:600;}
+.btn-nav-outline:hover{background:var(--white)!important;color:var(--blue)!important;}
+.btn-nav-solid{background:var(--white);color:var(--blue)!important;border-radius:20px;padding:6px 16px;font-weight:600;}
+.btn-nav-solid:hover{background:#d6eff8!important;}
+/* Flash messages */
+.flash-wrap{max-width:1200px;margin:14px auto 0;padding:0 20px;}
+.alert{padding:11px 16px;border-radius:10px;margin-bottom:8px;font-size:.9rem;}
+.alert-success{background:#e8f8f0;color:var(--green);}
+.alert-error,  .alert-warning{background:#fdf2ec;color:#c0392b;}
+.alert-info{background:var(--blue-light);color:var(--blue-dark);}
+/* Container */
+.container{max-width:1200px;margin:0 auto;padding:0 20px;}
+/* Generic card */
+.card{background:var(--white);border-radius:16px;padding:22px;box-shadow:0 4px 18px rgba(0,80,120,.08);}
+/* Form inputs (shared) */
+.form-input{width:100%;padding:11px 14px;border-radius:10px;border:1.5px solid #cce4ef;font-size:.95rem;outline:none;font-family:inherit;transition:border .2s;background:var(--white);}
+.form-input:focus{border-color:var(--blue);}
+.field{margin-bottom:16px;}
+.field label{display:block;font-size:.88rem;font-weight:600;margin-bottom:5px;}
+.field .hint{font-size:.78rem;color:var(--muted);margin-top:4px;}
+.field-error{font-size:.8rem;color:#c0392b;margin-top:4px;}
+/* Buttons */
+.btn{padding:11px 22px;border-radius:10px;font-size:.92rem;font-weight:700;cursor:pointer;border:none;text-decoration:none;display:inline-block;transition:background .18s;}
+.btn-primary{background:var(--blue);color:var(--white);}
+.btn-primary:hover{background:var(--blue-dark);}
+.btn-success{background:var(--green);color:var(--white);}
+.btn-outline-blue{background:none;border:2px solid var(--blue);color:var(--blue);}
+.btn-sm{padding:7px 14px;font-size:.82rem;}
+/* Status chips */
+.chip{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:.74rem;font-weight:700;}
+.chip-open{background:#e8f8f0;color:var(--green);}
+.chip-assigned{background:var(--blue-light);color:var(--blue);}
+.chip-completed{background:#f0f0f0;color:#666;}
+.chip-pending{background:#fff8e6;color:var(--orange);}
+.chip-accepted{background:#e8f8f0;color:var(--green);}
+.chip-declined{background:#fdf2ec;color:#c0392b;}
+.chip-requested{background:#fff8e6;color:var(--orange);}
+.chip-cancelled{background:#fdf2ec;color:#c0392b;}
+.chip-no_show{background:#fdf2ec;color:#c0392b;}
+/* Footer */
+footer{background:#1a2e3b;color:#8ba4b3;text-align:center;padding:22px;font-size:.85rem;}
+footer a{color:#8ba4b3;text-decoration:none;}
+/* Breadcrumb */
+.breadcrumb{padding:12px 0;font-size:.84rem;color:var(--muted);}
+.breadcrumb a{color:var(--blue);text-decoration:none;}
+/* Utility */
+.mt-0{margin-top:0!important;} .mb-0{margin-bottom:0!important;}
+.text-muted{color:var(--muted);}
+.text-blue{color:var(--blue);}
+.text-green{color:var(--green);}
+.fw-bold{font-weight:700;}
+.section-title{font-size:1.4rem;font-weight:700;margin-bottom:18px;}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:560px){.row2{grid-template-columns:1fr;}}
+</style>
+{% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<header>
+  <div class="hdr">
+    <a href="{% url 'home' %}" class="brand">Coconut<span>Wireless</span></a>
+    <nav>
+      <a href="{% url 'browse_tasks' %}">Browse Tasks</a>
+      {% if user.is_authenticated %}
+        {% if user.role == 'client' %}
+          <a href="{% url 'post_task' %}">Post a Job</a>
+        {% endif %}
+        <a href="{% url 'inbox' %}">Messages</a>
+        <a href="{% url 'dashboard' %}">Dashboard</a>
+        <a href="{% url 'logout' %}" class="btn-nav-outline">Log Out</a>
+      {% else %}
+        <a href="{% url 'how_it_works' %}">How It Works</a>
+        <a href="{% url 'login' %}" class="btn-nav-outline">Log In</a>
+        <a href="{% url 'register_client' %}" class="btn-nav-solid">Sign Up</a>
+      {% endif %}
+    </nav>
+  </div>
+</header>
+
+{% if messages %}
+<div class="flash-wrap">
+  {% for msg in messages %}
+    <div class="alert alert-{{ msg.tags }}">{{ msg }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% block content %}{% endblock %}
+
+<footer>
+  <p>&copy; 2026 Coconut Wireless &nbsp;|&nbsp; <a href="#">Privacy</a> &nbsp;|&nbsp; <a href="#">Terms</a> &nbsp;|&nbsp; <a href="#">Contact</a></p>
+</footer>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

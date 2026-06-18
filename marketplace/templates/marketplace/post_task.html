@@ -1,0 +1,147 @@
+{% extends "marketplace/base.html" %}
+{% block title %}Post a Task – Coconut Wireless{% endblock %}
+
+{% block extra_css %}
+<style>
+.post-page{padding:28px 0 50px;}
+.post-grid{display:grid;grid-template-columns:1fr 320px;gap:22px;}
+.form-card{background:var(--white);border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.08);padding:24px;margin-bottom:18px;}
+.form-card h2{font-size:1rem;color:var(--blue);margin:0 0 16px;padding-bottom:9px;border-bottom:1px solid var(--blue-light);}
+.cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px;}
+.cat-chip{display:flex;align-items:center;gap:7px;padding:9px 12px;border:1.5px solid #cce4ef;border-radius:10px;cursor:pointer;font-size:.84rem;background:var(--white);transition:all .2s;}
+.cat-chip:hover,.cat-chip.sel{border-color:var(--blue);background:var(--blue-light);color:var(--blue);font-weight:600;}
+.sidebar-card{background:var(--white);border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.08);padding:20px;position:sticky;top:16px;}
+.sidebar-card h3{font-size:.94rem;color:var(--blue);margin:0 0 12px;}
+.tip{display:flex;gap:9px;margin-bottom:10px;font-size:.85rem;color:var(--muted);line-height:1.5;}
+.page-hdr{margin-bottom:24px;}
+.page-hdr h1{font-size:1.6rem;margin:0 0 4px;}
+.page-hdr p{margin:0;color:var(--muted);font-size:.92rem;}
+@media(max-width:820px){.post-grid{grid-template-columns:1fr;}.sidebar-card{position:static;}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container post-page">
+  <div class="page-hdr">
+    <h1>Post a task</h1>
+    <p>Tell us what you need done and get quotes from local tradies across Fiji.</p>
+  </div>
+
+  <form method="post" action="{% url 'post_task' %}">
+    {% csrf_token %}
+    <div class="post-grid">
+      <div>
+        <div class="form-card">
+          <h2>What do you need done?</h2>
+          <div class="field">
+            <label>Task title</label>
+            {{ form.title }}
+            {% for e in form.title.errors %}<div class="field-error">{{e}}</div>{% endfor %}
+            <div class="hint">Be specific — it helps tradies give accurate quotes.</div>
+          </div>
+          <div class="field">
+            <label>Category</label>
+            <div class="cat-grid" id="catGrid">
+              {% for val, label in category_choices %}
+              <div class="cat-chip {% if form.category.value == val %}sel{% endif %}" onclick="pickCat('{{ val }}',this)">{{ label }}</div>
+              {% endfor %}
+            </div>
+            <input type="hidden" name="category" id="catInput" value="{{ form.category.value|default:'' }}" required>
+            {% for e in form.category.errors %}<div class="field-error">{{e}}</div>{% endfor %}
+          </div>
+          <div class="field">
+            <label>Description</label>
+            {{ form.description }}
+            {% for e in form.description.errors %}<div class="field-error">{{e}}</div>{% endfor %}
+          </div>
+        </div>
+
+        <div class="form-card">
+          <h2>Location &amp; timing</h2>
+          <div class="row2">
+            <div class="field">
+              <label>Town</label>
+              {{ form.town }}
+              {% for e in form.town.errors %}<div class="field-error">{{e}}</div>{% endfor %}
+            </div>
+            <div class="field">
+              <label>Preferred date <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+              {{ form.preferred_date }}
+            </div>
+          </div>
+        </div>
+
+        <div class="form-card">
+          <h2>Budget (FJD $)</h2>
+          <div class="field">
+            {{ form.budget }}
+            <div class="hint">Enter your budget in Fijian Dollars. Tradies will quote around this figure.</div>
+            {% for e in form.budget.errors %}<div class="field-error">{{e}}</div>{% endfor %}
+          </div>
+        </div>
+
+        <div class="form-card">
+          <h2>Materials and job inclusions</h2>
+          <div class="field">
+            <label>Materials responsibility</label>
+            {{ form.materials_responsibility }}
+          </div>
+          <div class="field">
+            <label>Inclusions</label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <label class="field-checkbox">{{ form.meals_provided }} Meals or refreshments provided</label>
+              <label class="field-checkbox">{{ form.parking_available_flag }} Parking available</label>
+              <label class="field-checkbox">{{ form.site_access_available }} Site access available</label>
+              <label class="field-checkbox">{{ form.tools_required }} Tools/equipment required from provider</label>
+              <label class="field-checkbox">{{ form.rubbish_removal_required }} Rubbish/disposal removal required</label>
+              <label class="field-checkbox">{{ form.after_hours_required }} After-hours or weekend work required</label>
+              <label class="field-checkbox">{{ form.on_site_inspection_required }} On-site quote / inspection required</label>
+              <label class="field-checkbox">{{ form.delivery_required }} Delivery or transport required</label>
+              <label class="field-checkbox">{{ form.clean_up_required }} Clean-up after job required</label>
+              <label class="field-checkbox">{{ form.client_provide_photos }} Client will provide photos/details before quote</label>
+              <label class="field-checkbox">{{ form.warranty_followup_requested }} Provider should include warranty/follow-up if applicable</label>
+            </div>
+          </div>
+          <div class="field">
+            <label>Materials notes</label>
+            {{ form.materials_notes }}
+          </div>
+          <div class="field">
+            <label>Parking notes</label>
+            {{ form.parking_notes }}
+          </div>
+          <div class="field">
+            <label>Special instructions</label>
+            {{ form.special_instructions }}
+          </div>
+        </div>
+
+        {% if form.non_field_errors %}
+          <div class="field-error" style="margin-bottom:12px;">{{ form.non_field_errors }}</div>
+        {% endif %}
+      </div>
+
+      <div>
+        <div class="sidebar-card">
+          <h3>Posting tips</h3>
+          <div class="tip"><span>✅</span>Include make/model or measurements where relevant.</div>
+          <div class="tip"><span>✅</span>Mention if materials are needed — tradies can include them in quotes.</div>
+          <div class="tip"><span>✅</span>Set a realistic budget to attract serious quotes.</div>
+          <div class="tip"><span>✅</span>Be available to respond to messages quickly.</div>
+          <button type="submit" class="btn btn-primary" style="width:100%;margin-top:14px;padding:13px;">Post task →</button>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function pickCat(val, el){
+  document.querySelectorAll('.cat-chip').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('catInput').value=val;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,178 @@
+{% extends "marketplace/base.html" %}
+{% block title %}My Dashboard – Coconut Wireless{% endblock %}
+
+{% block extra_css %}
+<style>
+.app-body{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 62px);}
+.sidebar{background:var(--white);border-right:1px solid #dde8ef;padding:22px 0;}
+.sb-user{padding:14px 18px 18px;border-bottom:1px solid #dde8ef;margin-bottom:10px;}
+.sb-av{width:42px;height:42px;border-radius:50%;background:var(--blue);color:var(--white);display:flex;align-items:center;justify-content:center;font-weight:700;margin-bottom:9px;font-size:.95rem;}
+.sb-name{font-weight:700;font-size:.92rem;}
+.sb-role{font-size:.75rem;color:var(--muted);}
+.sb-lbl{font-size:.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:0 18px;margin-bottom:4px;margin-top:4px;}
+.sb-link{display:flex;align-items:center;gap:9px;padding:9px 18px;font-size:.87rem;color:var(--text);text-decoration:none;transition:background .15s;}
+.sb-link:hover{background:var(--blue-light);}
+.sb-link.active{background:var(--blue-light);color:var(--blue);font-weight:700;border-right:3px solid var(--blue);}
+.sb-link .icon{width:20px;text-align:center;}
+.bc{margin-left:auto;background:var(--blue);color:var(--white);border-radius:20px;padding:1px 7px;font-size:.7rem;font-weight:700;}
+.main{padding:26px 28px 50px;}
+.page-title{font-size:1.4rem;font-weight:700;margin:0 0 4px;}
+.page-sub{color:var(--muted);font-size:.9rem;margin:0 0 22px;}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:13px;margin-bottom:26px;}
+.stat-card{background:var(--white);border-radius:13px;padding:16px;box-shadow:0 3px 14px rgba(0,80,120,.07);}
+.stat-num{font-size:1.7rem;font-weight:800;color:var(--blue);}
+.stat-lbl{font-size:.78rem;color:var(--muted);margin-top:2px;}
+.stat-delta{font-size:.75rem;color:var(--green);margin-top:3px;}
+.sec-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;margin-top:22px;}
+.sec-hdr h2{font-size:1.02rem;margin:0;}
+.task-row{background:var(--white);border-radius:13px;box-shadow:0 3px 12px rgba(0,80,120,.07);padding:15px 18px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:12px;}
+.task-row-info{}
+.task-row-title{font-weight:700;font-size:.92rem;margin-bottom:3px;}
+.task-row-meta{font-size:.79rem;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap;}
+.task-row-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;}
+.notif{background:var(--white);border-radius:13px;box-shadow:0 3px 12px rgba(0,80,120,.07);padding:14px 16px;margin-bottom:9px;display:flex;gap:12px;align-items:flex-start;}
+.notif-icon{width:36px;height:36px;border-radius:50%;background:var(--blue-light);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;}
+.notif-body .nb-title{font-weight:700;font-size:.86rem;margin-bottom:2px;}
+.notif-body .nb-sub{font-size:.8rem;color:var(--muted);}
+.notif-time{font-size:.75rem;color:var(--muted);margin-left:auto;white-space:nowrap;}
+footer{display:none;}/* hide footer inside dashboard layout */
+@media(max-width:760px){.app-body{grid-template-columns:1fr;}.sidebar{border-right:none;border-bottom:1px solid #dde8ef;padding:12px 0;}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="app-body">
+  <aside class="sidebar">
+    <div class="sb-user">
+      <div class="sb-av">{{ user.initials }}</div>
+      <div class="sb-name">{{ user.first_name }} {{ user.last_name }}</div>
+      <div class="sb-role">Client · {{ user.town }}</div>
+    </div>
+    <div class="sb-lbl">My tasks</div>
+    <a href="{% url 'client_dashboard' %}" class="sb-link active"><span class="icon">📋</span>All tasks</a>
+    <a href="{% url 'browse_tasks' %}" class="sb-link"><span class="icon">🔍</span>Browse tasks</a>
+    <a href="{% url 'post_task' %}" class="sb-link"><span class="icon">➕</span>Post a task</a>
+    <div class="sb-lbl" style="margin-top:10px;">Account</div>
+    <a href="{% url 'inbox' %}" class="sb-link"><span class="icon">💬</span>Messages</a>
+    <a href="{% url 'how_it_works' %}" class="sb-link"><span class="icon">ℹ️</span>How It Works</a>
+    <a href="{% url 'logout' %}" class="sb-link"><span class="icon">🚪</span>Log out</a>
+    {% if sponsors %}
+    <div style="padding:14px 16px;">
+      <p style="font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px;">Sponsored</p>
+      {% for s in sponsors %}
+      <a href="{{ s.destination_url }}" target="_blank" rel="noopener sponsored" title="{{ s.business_name }}">
+        <img src="{{ s.banner_image.url }}" alt="{{ s.business_name }}" style="width:100%;border-radius:8px;display:block;{% if not forloop.last %}margin-bottom:8px;{% endif %}">
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </aside>
+
+  <main class="main">
+    <div class="page-title">My Dashboard</div>
+    <p class="page-sub">Bula, {{ user.first_name }}! Here's an overview of your tasks.</p>
+
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-num">{{ total_tasks }}</div><div class="stat-lbl">Tasks posted</div></div>
+      <div class="stat-card"><div class="stat-num">{{ open_tasks|length }}</div><div class="stat-lbl">Open tasks</div></div>
+      <div class="stat-card"><div class="stat-num">{{ new_quotes }}</div><div class="stat-lbl">New quotes</div>{% if new_quotes %}<div class="stat-delta">↑ waiting for you</div>{% endif %}</div>
+      <div class="stat-card"><div class="stat-num">{{ completed_tasks|length }}</div><div class="stat-lbl">Completed</div></div>
+    </div>
+
+    {% if open_tasks %}
+    <div class="sec-hdr"><h2>Open tasks</h2><a href="{% url 'post_task' %}" class="btn btn-primary btn-sm">+ New task</a></div>
+    {% for t in open_tasks %}
+    <div class="task-row">
+      <div class="task-row-info">
+        <div class="task-row-title"><a href="{% url 'task_detail' t.pk %}" style="text-decoration:none;color:inherit;">{{ t.title }}</a></div>
+        <div class="task-row-meta">
+          <span>{{ t.get_category_display }}</span>
+          <span>📍 {{ t.town }}</span>
+          <span>💬 {{ t.quote_count }} quote{{ t.quote_count|pluralize }}</span>
+          <span>{{ t.created_at|timesince }} ago</span>
+        </div>
+      </div>
+      <div class="task-row-right">
+        <span class="chip chip-open">Open</span>
+        <span class="fw-bold text-blue">FJD ${{ t.budget }}</span>
+        <a href="{% url 'task_detail' t.pk %}" class="btn btn-sm" style="background:#f0f5f8;color:var(--blue);">View</a>
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if assigned_tasks %}
+    <div class="sec-hdr" style="margin-top:22px;"><h2>Assigned tasks</h2></div>
+    {% for t in assigned_tasks %}
+    <div class="task-row">
+      <div class="task-row-info">
+        <div class="task-row-title"><a href="{% url 'task_detail' t.pk %}" style="text-decoration:none;color:inherit;">{{ t.title }}</a></div>
+        <div class="task-row-meta">
+          <span>{{ t.get_category_display }}</span>
+          <span>📍 {{ t.town }}</span>
+          {% if t.assigned_tradie %}<span>🔧 {{ t.assigned_tradie.full_name }}</span>{% endif %}
+        </div>
+      </div>
+      <div class="task-row-right">
+        <span class="chip chip-assigned">Assigned</span>
+        <span class="fw-bold text-blue">FJD ${{ t.budget }}</span>
+        <a href="{% url 'task_detail' t.pk %}" class="btn btn-sm" style="background:#f0f5f8;color:var(--blue);">View</a>
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if completed_tasks %}
+    <div class="sec-hdr" style="margin-top:22px;"><h2>Completed tasks</h2></div>
+    {% for t in completed_tasks %}
+    <div class="task-row">
+      <div class="task-row-info">
+        <div class="task-row-title"><a href="{% url 'task_detail' t.pk %}" style="text-decoration:none;color:inherit;">{{ t.title }}</a></div>
+        <div class="task-row-meta">
+          <span>{{ t.get_category_display }}</span>
+          <span>📍 {{ t.town }}</span>
+          {% if t.assigned_tradie %}<span>🔧 {{ t.assigned_tradie.full_name }}</span>{% endif %}
+        </div>
+      </div>
+      <div class="task-row-right">
+        <span class="chip chip-completed">Completed</span>
+        <span class="fw-bold text-blue">FJD ${{ t.budget }}</span>
+        <a href="{% url 'task_detail' t.pk %}" class="btn btn-sm" style="background:#f0f5f8;color:var(--blue);">View / Review</a>
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if appointments %}
+    <div class="sec-hdr" style="margin-top:22px;"><h2>Quoting appointments</h2></div>
+    {% for appt in appointments %}
+    <div class="task-row">
+      <div class="task-row-info">
+        <div class="task-row-title"><a href="{% url 'task_detail' appt.task.pk %}" style="text-decoration:none;color:inherit;">{{ appt.task.title }}</a></div>
+        <div class="task-row-meta">
+          <span>🔧 {{ appt.provider.full_name }}</span>
+          {% if appt.selected_slot %}
+            <span>📅 Confirmed: {{ appt.selected_slot.proposed_date }} {{ appt.selected_slot.start_time|time:"H:i" }}–{{ appt.selected_slot.end_time|time:"H:i" }}</span>
+          {% else %}
+            <span>{{ appt.slots.count }} time option{{ appt.slots.count|pluralize }} proposed</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="task-row-right">
+        <span class="chip chip-{{ appt.status }}">{{ appt.get_status_display }}</span>
+        <a href="{% url 'task_detail' appt.task.pk %}" class="btn btn-sm" style="background:#f0f5f8;color:var(--blue);">View</a>
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if not total_tasks %}
+    <div style="text-align:center;padding:50px 20px;color:var(--muted);">
+      <p style="font-size:2rem">📋</p>
+      <p>No tasks yet. Post your first one!</p>
+      <a href="{% url 'post_task' %}" class="btn btn-primary">Post a task</a>
+    </div>
+    {% endif %}
+  </main>
+</div>
+{% endblock %}

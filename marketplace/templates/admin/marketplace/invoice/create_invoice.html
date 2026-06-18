@@ -1,0 +1,111 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div id="content-main">
+
+  {% if step == 'select' %}
+  <h1>Create Invoice</h1>
+  <p>Select a provider and the invoice period, then fetch their completed, uninvoiced jobs.</p>
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="fetch">
+    <fieldset class="module aligned">
+      <div class="form-row">
+        <div>
+          <label for="id_tradie">Provider / Local Pro:</label>
+          <select name="tradie" id="id_tradie" required>
+            <option value="">---------</option>
+            {% for provider in providers %}
+              <option value="{{ provider.pk }}">{{ provider.full_name }} ({{ provider.email }})</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label for="id_period_start">Invoice period start:</label>
+          <input type="date" name="period_start" id="id_period_start" required>
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label for="id_period_end">Invoice period end:</label>
+          <input type="date" name="period_end" id="id_period_end" required>
+        </div>
+      </div>
+    </fieldset>
+    <div class="submit-row">
+      <input type="submit" value="Fetch completed jobs" class="default">
+    </div>
+  </form>
+  {% endif %}
+
+  {% if step == 'preview' %}
+  <h1>Invoice preview — {{ tradie.full_name }}</h1>
+  <div class="module" style="padding:10px 12px;margin-bottom:15px;">
+    <p style="margin:4px 0;"><strong>Provider:</strong> {{ tradie.full_name }}</p>
+    <p style="margin:4px 0;"><strong>Email:</strong> {{ tradie.email }}</p>
+    <p style="margin:4px 0;"><strong>Phone:</strong> {{ tradie.mobile|default:"—" }}</p>
+    <p style="margin:4px 0;"><strong>Invoice period:</strong> {{ period_start }} to {{ period_end }}</p>
+  </div>
+
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="step" value="create">
+    <input type="hidden" name="tradie" value="{{ tradie.pk }}">
+    <input type="hidden" name="period_start" value="{{ period_start }}">
+    <input type="hidden" name="period_end" value="{{ period_end }}">
+
+    <h2>Eligible completed jobs</h2>
+    {% if fee_rows %}
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:6px;border-bottom:1px solid #ccc;">Include</th>
+          <th style="text-align:left;padding:6px;border-bottom:1px solid #ccc;">Job</th>
+          <th style="text-align:right;padding:6px;border-bottom:1px solid #ccc;">Final job value</th>
+          <th style="text-align:left;padding:6px;border-bottom:1px solid #ccc;">Fee rule</th>
+          <th style="text-align:right;padding:6px;border-bottom:1px solid #ccc;">Coconut Wireless fee</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in fee_rows %}
+        <tr>
+          <td style="padding:6px;border-bottom:1px solid #eee;vertical-align:top;"><input type="checkbox" name="fee_ids" value="{{ row.fee.pk }}" checked></td>
+          <td style="padding:6px;border-bottom:1px solid #eee;"><pre style="white-space:pre-wrap;margin:0;font-family:inherit;">{{ row.description }}</pre></td>
+          <td style="padding:6px;border-bottom:1px solid #eee;text-align:right;vertical-align:top;">FJD ${{ row.fee.final_job_value }}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;vertical-align:top;">{{ row.rule }}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;text-align:right;vertical-align:top;">FJD ${{ row.fee.fee_amount }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <th colspan="2" style="text-align:left;padding:6px;border-top:2px solid #ccc;">Totals</th>
+          <th style="text-align:right;padding:6px;border-top:2px solid #ccc;">FJD ${{ total_jobs }}</th>
+          <th style="border-top:2px solid #ccc;"></th>
+          <th style="text-align:right;padding:6px;border-top:2px solid #ccc;">FJD ${{ total_fees }}</th>
+        </tr>
+      </tfoot>
+    </table>
+    {% else %}
+    <p>No eligible completed jobs were found for this provider in the selected period.</p>
+    {% endif %}
+
+    <h2 style="margin-top:24px;">Manual adjustment lines <span style="font-weight:normal;">(optional — corrections, discounts, waivers, admin fees)</span></h2>
+    {% for i in manual_line_range %}
+    <div class="form-row" style="display:flex;gap:10px;align-items:center;">
+      <input type="text" name="manual_description_{{ i }}" placeholder="Description" style="flex:3;">
+      <input type="number" step="0.01" name="manual_amount_{{ i }}" placeholder="Amount (FJD, use - for credits)" style="flex:1;">
+    </div>
+    {% endfor %}
+
+    <div class="submit-row">
+      <input type="submit" value="Create Invoice" class="default">
+      <a href="{% url 'admin:marketplace_invoice_create' %}" class="button cancel-link" style="margin-left:10px;">Start over</a>
+    </div>
+  </form>
+  {% endif %}
+
+</div>
+{% endblock %}

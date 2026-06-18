@@ -1,0 +1,175 @@
+{% extends "marketplace/base.html" %}
+{% block title %}How It Works – Coconut Wireless{% endblock %}
+
+{% block extra_css %}
+<style>
+.hero{background:linear-gradient(135deg,var(--blue) 0%,#0096c7 100%);color:var(--white);padding:56px 0;text-align:center;}
+.hero h1{font-size:2.2rem;margin:0 0 12px;}
+.hero p{font-size:1.02rem;opacity:.9;margin:0 auto;max-width:560px;}
+.tabs{display:flex;justify-content:center;gap:0;margin:32px auto 0;max-width:400px;background:rgba(255,255,255,.15);border-radius:28px;padding:4px;}
+.tab{flex:1;padding:9px 18px;border-radius:24px;cursor:pointer;font-size:.93rem;font-weight:600;color:rgba(255,255,255,.8);border:none;background:none;transition:all .2s;}
+.tab.active{background:var(--white);color:var(--blue);}
+.section{padding:50px 0;}
+.section-alt{background:var(--white);}
+.sec-title{text-align:center;font-size:1.5rem;font-weight:700;margin:0 0 8px;}
+.sec-sub{text-align:center;color:var(--muted);margin:0 0 36px;font-size:.93rem;}
+.steps-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;max-width:860px;margin:0 auto;}
+.step-card{background:var(--white);border-radius:16px;padding:26px 20px;text-align:center;box-shadow:0 4px 18px rgba(0,80,120,.08);}
+.section-alt .step-card{background:#f4fafd;}
+.sicon{width:54px;height:54px;border-radius:50%;background:var(--blue);color:var(--white);display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin:0 auto 12px;}
+.snl{font-size:.73rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--blue);margin-bottom:5px;}
+.step-card h3{font-size:1rem;margin:0 0 7px;}
+.step-card p{font-size:.86rem;color:var(--muted);line-height:1.6;margin:0;}
+.feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;max-width:860px;margin:0 auto;}
+.feat{border-radius:14px;padding:20px;}
+.feat-icon{font-size:1.7rem;margin-bottom:9px;}
+.feat h3{font-size:.97rem;margin:0 0 5px;}
+.feat p{font-size:.86rem;color:var(--muted);line-height:1.6;margin:0;}
+.trust-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:18px;max-width:820px;margin:0 auto;}
+.trust-item{text-align:center;}
+.trust-item .big{font-size:1.9rem;font-weight:800;color:var(--blue);}
+.trust-item .lbl{font-size:.85rem;color:var(--muted);margin-top:3px;}
+.faq-list{max-width:660px;margin:0 auto;}
+.faq-item{border-bottom:1px solid #dde8ef;}
+.faq-q{padding:15px 0;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:.93rem;}
+.faq-q::after{content:'＋';font-size:1.1rem;color:var(--blue);}
+.faq-item.open .faq-q::after{content:'－';}
+.faq-a{display:none;padding:0 0 14px;font-size:.86rem;color:var(--muted);line-height:1.7;}
+.faq-item.open .faq-a{display:block;}
+.cta-band{background:var(--blue);color:var(--white);text-align:center;padding:52px 20px;}
+.cta-band h2{font-size:1.7rem;margin:0 0 11px;}
+.cta-band p{margin:0 0 26px;opacity:.88;}
+.cta-pair{display:flex;gap:13px;justify-content:center;flex-wrap:wrap;}
+.cbtn-w{padding:13px 26px;background:var(--white);color:var(--blue);border:none;border-radius:12px;font-size:.97rem;font-weight:700;cursor:pointer;text-decoration:none;}
+.cbtn-o{padding:13px 26px;background:transparent;color:var(--white);border:2px solid var(--white);border-radius:12px;font-size:.97rem;font-weight:700;cursor:pointer;text-decoration:none;}
+@media(max-width:600px){.hero h1{font-size:1.7rem;}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="hero">
+  <div class="container">
+    <h1>How Coconut Wireless works</h1>
+    <p>Whether you need a job done or you're a tradie looking for work — we make it simple.</p>
+    <div class="tabs">
+      <button class="tab active" onclick="setTab(this,'client')">I need a tradie</button>
+      <button class="tab" onclick="setTab(this,'tradie')">I'm a tradie</button>
+    </div>
+  </div>
+</div>
+
+<div id="clientSection">
+  <section class="section">
+    <div class="container">
+      <h2 class="sec-title">Getting work done in 3 steps</h2>
+      <p class="sec-sub">From posting to paid — it takes minutes, not days.</p>
+      <div class="steps-row">
+        <div class="step-card"><div class="sicon">📝</div><div class="snl">Step 1</div><h3>Post your task</h3><p>Describe what you need, set your budget in FJD, and choose your town.</p></div>
+        <div class="step-card"><div class="sicon">💬</div><div class="snl">Step 2</div><h3>Receive quotes</h3><p>Qualified local tradies send quotes and messages. Compare ratings and pick the best fit.</p></div>
+        <div class="step-card"><div class="sicon">✅</div><div class="snl">Step 3</div><h3>Get it done</h3><p>Accept a quote, communicate in-app, mark it complete, and review the tradie.</p></div>
+      </div>
+    </div>
+  </section>
+  <section class="section section-alt">
+    <div class="container">
+      <h2 class="sec-title">Why use Coconut Wireless?</h2>
+      <p class="sec-sub">We take the hassle out of finding good help in Fiji.</p>
+      <div class="feat-grid">
+        <div class="feat"><div class="feat-icon">🛡️</div><h3>Verified tradies</h3><p>Every tradie is registered on the platform. Licensed tradespeople carry a badge.</p></div>
+        <div class="feat"><div class="feat-icon">⭐</div><h3>Structured reviews</h3><p>Ratings cover 5 specific criteria — not just a single star score. You see the full picture.</p></div>
+        <div class="feat"><div class="feat-icon">💬</div><h3>In-app messaging</h3><p>Communicate safely without sharing your personal number before you're ready.</p></div>
+        <div class="feat"><div class="feat-icon">🆓</div><h3>Free to post</h3><p>Posting tasks costs nothing. You only pay the tradie when the work is done.</p></div>
+        <div class="feat"><div class="feat-icon">📍</div><h3>Local experts</h3><p>Tradies serve Suva, Nadi, Lautoka, Nausori, and Labasa. All Fijian, all local.</p></div>
+        <div class="feat"><div class="feat-icon">💰</div><h3>FJD pricing</h3><p>Everything in Fijian Dollars — no currency confusion, no hidden conversion fees.</p></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div id="tradieSection" style="display:none;">
+  <section class="section">
+    <div class="container">
+      <h2 class="sec-title">Find work and grow your business</h2>
+      <p class="sec-sub">Join Fijian tradies already earning more with Coconut Wireless.</p>
+      <div class="steps-row">
+        <div class="step-card"><div class="sicon">📋</div><div class="snl">Step 1</div><h3>Create your profile</h3><p>Sign up free, add your skills and service towns. Build your reputation with every job.</p></div>
+        <div class="step-card"><div class="sicon">🔍</div><div class="snl">Step 2</div><h3>Find jobs near you</h3><p>Browse open tasks in Suva, Nadi, Lautoka and beyond. Filter by trade and town.</p></div>
+        <div class="step-card"><div class="sicon">💰</div><div class="snl">Step 3</div><h3>Quote and win work</h3><p>Submit your price and a personalised message. Win the job and get paid in FJD.</p></div>
+      </div>
+    </div>
+  </section>
+  <section class="section section-alt">
+    <div class="container">
+      <h2 class="sec-title">Built for Fijian tradies</h2>
+      <p class="sec-sub">Tools that help you run your business, not just find work.</p>
+      <div class="feat-grid">
+        <div class="feat"><div class="feat-icon">🆓</div><h3>Free to join</h3><p>No monthly fees. Sign up, get your profile live, and start quoting today.</p></div>
+        <div class="feat"><div class="feat-icon">📊</div><h3>Dashboard</h3><p>Track your quotes, active jobs, completed work, and reviews in one place.</p></div>
+        <div class="feat"><div class="feat-icon">⭐</div><h3>Build your reputation</h3><p>Every 5-criteria review builds your profile. Top-rated tradies get more work.</p></div>
+        <div class="feat"><div class="feat-icon">💬</div><h3>Private client feedback</h3><p>Rate your clients too — privately, for your own records and our dispute team.</p></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<section class="section">
+  <div class="container">
+    <h2 class="sec-title">Trusted across Fiji</h2>
+    <p class="sec-sub">Growing every week.</p>
+    <div class="trust-row">
+      <div class="trust-item"><div class="big">500+</div><div class="lbl">Registered tradies</div></div>
+      <div class="trust-item"><div class="big">2,400+</div><div class="lbl">Tasks completed</div></div>
+      <div class="trust-item"><div class="big">4.8 ★</div><div class="lbl">Avg tradie rating</div></div>
+      <div class="trust-item"><div class="big">FJD</div><div class="lbl">All pricing local</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-alt">
+  <div class="container">
+    <h2 class="sec-title">Frequently asked questions</h2>
+    <p class="sec-sub">Everything you need to know.</p>
+    <div class="faq-list">
+      <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Is it free to post a task?</div><div class="faq-a">Yes — posting a task is completely free. You only pay the tradie once the job is done.</div></div>
+      <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">How does the rating system work?</div><div class="faq-a">Clients rate providers on 6 public criteria: Reliability &amp; Punctuality, Quote / Price Accuracy, Value for Money, Service Quality / Workmanship, Communication &amp; After-Service, and Timeline / Schedule Delivery. Private feedback about clients is still recorded separately for admin use only.</div></div>
+      <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">What towns are covered?</div><div class="faq-a">Currently Suva, Nadi, Lautoka, Nausori, and Labasa. We're expanding across Fiji as our tradie network grows.</div></div>
+      <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">How much does it cost for tradies?</div><div class="faq-a">Joining is free. Check the current pricing page for any service fees on completed jobs.</div></div>
+      <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Are prices in Fijian Dollars?</div><div class="faq-a">Yes — all budgets, quotes, and payments on Coconut Wireless are in FJD (Fijian Dollars).</div></div>
+    </div>
+  </div>
+</section>
+
+{% if sponsors %}
+<div class="container" style="padding:0 20px 28px;">
+  <p style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 10px;">Sponsored</p>
+  <div style="display:flex;gap:16px;flex-wrap:wrap;">
+    {% for s in sponsors %}
+    <a href="{{ s.destination_url }}" target="_blank" rel="noopener sponsored" title="{{ s.business_name }}" style="flex:1;min-width:200px;">
+      <img src="{{ s.banner_image.url }}" alt="{{ s.business_name }}" style="width:100%;border-radius:12px;display:block;">
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="cta-band">
+  <h2>Ready to get started?</h2>
+  <p>Join thousands of Fijians using Coconut Wireless every day.</p>
+  <div class="cta-pair">
+    <a href="{% url 'register_client' %}" class="cbtn-w">Post a task – it's free</a>
+    <a href="{% url 'register_tradie' %}" class="cbtn-o">Join as a tradie</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function setTab(el,tab){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('clientSection').style.display=tab==='client'?'':'none';
+  document.getElementById('tradieSection').style.display=tab==='tradie'?'':'none';
+}
+function toggleFaq(el){el.parentElement.classList.toggle('open');}
+</script>
+{% endblock %}

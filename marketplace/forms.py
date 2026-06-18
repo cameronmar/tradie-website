@@ -1,0 +1,334 @@
+from django import forms
+from django.core.exceptions import ValidationError
+
+from .constants import TRADE_CHOICES, TOWN_CHOICES, EXPERIENCE_CHOICES
+from .models import User, TradieProfile, Task, Quote, Message, TradeCategory, TaskPhoto
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _input(placeholder='', type_='text', **kwargs):
+    return forms.TextInput(attrs={'placeholder': placeholder, 'class': 'form-input', **kwargs})
+
+
+def _select(**kwargs):
+    return forms.Select(attrs={'class': 'form-input', **kwargs})
+
+
+# ── Auth forms ────────────────────────────────────────────────────────────────
+
+class ClientRegistrationForm(forms.Form):
+    first_name       = forms.CharField(max_length=50,  widget=_input('e.g. Priya'))
+    last_name        = forms.CharField(max_length=50,  widget=_input('e.g. Sharma'))
+    email            = forms.EmailField(widget=_input('you@example.fj', type_='email'))
+    mobile           = forms.CharField(max_length=20,  widget=_input('+679 123 4567'))
+    town             = forms.ChoiceField(choices=[('', 'Select town…')] + list(TOWN_CHOICES), widget=_select())
+    password         = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-input', 'placeholder': 'At least 8 characters'}))
+    password_confirm = forms.CharField(label='Confirm password', widget=forms.PasswordInput(attrs={'class': 'form-input', 'placeholder': 'Repeat password'}))
+    accepted_terms   = forms.BooleanField(
+        required=True,
+        error_messages={'required': 'You must accept the Terms & Conditions, Privacy Policy and Platform Rules to register.'}
+    )
+
+    def clean_email(self):
+        email = self.cleaned_data['email'].lower()
+        if User.objects.filter(email=email).exists():
+            raise ValidationError('An account with this email already exists.')
+        return email
+
+    def clean(self):
+        cd = super().clean()
+        p1, p2 = cd.get('password'), cd.get('password_confirm')
+        if p1 and p2 and p1 != p2:
+            raise ValidationError('Passwords do not match.')
+        return cd
+
+    def save(self):
+        cd = self.cleaned_data
+        return User.objects.create_user(
+            email=cd['email'],
+            password=cd['password'],
+            first_name=cd['first_name'],
+            last_name=cd['last_name'],
+            mobile=cd['mobile'],
+            town=cd['town'],
+            role=User.ROLE_CLIENT,
+        )
+
+
+class TradieRegistrationForm(forms.Form):
+    first_name       = forms.CharField(max_length=50,  widget=_input('e.g. Sailosi'))
+    last_name        = forms.CharField(max_length=50,  widget=_input('e.g. Tora'))
+    email            = forms.EmailField(widget=_input('you@example.fj', type_='email'))
+    mobile           = forms.CharField(max_length=20,  widget=_input('+679 XXX XXXX'))
+    town             = forms.ChoiceField(choices=[('', 'Select town / service area…')] + list(TOWN_CHOICES), widget=_select())
+    password         = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-input', 'placeholder': 'At least 8 characters'}))
+    password_confirm = forms.CharField(label='Confirm password', widget=forms.PasswordInput(attrs={'class': 'form-input', 'placeholder': 'Repeat password'}))
+    # Provider profile
+    business_name    = forms.CharField(max_length=100, label='Company / Business Name', widget=_input('e.g. Tora Plumbing Suva'))
+    tin              = forms.CharField(max_length=50, required=False, label='TIN Number (optional)', widget=_input('e.g. P033-12345'))
+    years_experience = forms.ChoiceField(choices=[('', 'Select…')] + list(EXPERIENCE_CHOICES), widget=_select())
+    bio              = forms.CharField(widget=forms.Textarea(attrs={'class': 'form-input', 'rows': 4, 'placeholder': 'Tell clients about your experience, specialties and work area…'}))
+    trades           = forms.MultipleChoiceField(choices=TRADE_CHOICES, widget=forms.CheckboxSelectMultiple)
+    service_towns    = forms.MultipleChoiceField(choices=TOWN_CHOICES, widget=forms.CheckboxSelectMultiple)
+    # Verification documents
+    tin_letter                    = forms.FileField(label='TIN Letter', help_text='Upload your FRCA TIN letter (PDF or image). Required.')
+    business_licence              = forms.FileField(label='Business Licence', required=False, help_text='Optional.')
+    public_liability_insurance    = forms.FileField(label='Public Liability Insurance', required=False, help_text='Optional.')
+    electrical_contractors_licence = forms.FileField(label='Electrical Contractors Licence', required=False, help_text='Required if Electrical is selected.')
+    plumber_licence               = forms.FileField(label='Plumber Licence', required=False, help_text='Required if Plumbing is selected.')
+    # Terms acceptance
+    accepted_terms                = forms.BooleanField(
+        required=True,
+        error_messages={'required': 'You must accept the Terms & Conditions, Privacy Policy and Platform Rules to register.'}
+    )
+    accepted_platform_circumvention = forms.BooleanField(
+        required=True,
+        error_messages={'required': 'You must acknowledge the Platform Circumvention Fee policy.'}
+    )
+    accepted_invoicing_terms      = forms.BooleanField(
+        required=True,
+        error_messages={'required': 'You must acknowledge the invoicing and payment obligations.'}
+    )
+
+    def clean_email(self):
+        email = self.cleaned_data['email'].lower()
+        if User.objects.filter(email=email).exists():
+            raise ValidationError('An account with this email already exists.')
+        return email
+
+    def clean(self):
+        cd = super().clean()
+        p1, p2 = cd.get('password'), cd.get('password_confirm')
+        if p1 and p2 and p1 != p2:
+            raise ValidationError('Passwords do not match.')
+        trades = cd.get('trades', [])
+        if 'electrical' in trades and not cd.get('electrical_contractors_licence'):
+            self.add_error('electrical_contractors_licence', 'Electrical Contractors Licence is required when Electrical is selected.')
+        if 'plumbing' in trades and not cd.get('plumber_licence'):
+            self.add_error('plumber_licence', 'Plumber Licence is required when Plumbing is selected.')
+        return cd
+
+    def save(self):
+        cd = self.cleaned_data
+        user = User.objects.create_user(
+            email=cd['email'],
+            password=cd['password'],
+            first_name=cd['first_name'],
+            last_name=cd['last_name'],
+            mobile=cd['mobile'],
+            town=cd['town'],
+            role=User.ROLE_TRADIE,
+        )
+        profile = TradieProfile(
+            user=user,
+            business_name=cd.get('business_name', ''),
+            tin=cd.get('tin', ''),
+            years_experience=cd.get('years_experience', ''),
+            bio=cd.get('bio', ''),
+            trades=list(cd.get('trades', [])),
+            service_towns=list(cd.get('service_towns', [])),
+        )
+        for field in ('tin_letter', 'business_licence', 'public_liability_insurance',
+                      'electrical_contractors_licence', 'plumber_licence'):
+            if cd.get(field):
+                setattr(profile, field, cd[field])
+        profile.save()
+        return user
+
+
+class LoginForm(forms.Form):
+    email    = forms.EmailField(widget=_input('you@example.fj', type_='email'))
+    password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-input', 'placeholder': 'Your password'}))
+
+
+# ── Task form ─────────────────────────────────────────────────────────────────
+
+class TaskForm(forms.ModelForm):
+    categories = forms.ModelMultipleChoiceField(
+        queryset=TradeCategory.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label='Job Categories (select one or more)'
+    )
+
+    class Meta:
+        model  = Task
+        fields = [
+            'title', 'category', 'categories', 'description', 'budget', 'town', 'preferred_date',
+            'materials_responsibility', 'meals_provided', 'parking_available_flag', 'site_access_available',
+            'tools_required', 'rubbish_removal_required', 'after_hours_required', 'on_site_inspection_required',
+            'delivery_required', 'clean_up_required', 'client_provide_photos', 'warranty_followup_requested',
+            'materials_notes', 'parking_notes', 'access_notes', 'special_instructions',
+            'urgency', 'budget_type'
+        ]
+        widgets = {
+            'title':               forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. Fix leaking tap in kitchen'}),
+            'category':            forms.Select(attrs={'class': 'form-input'}),
+            'description':         forms.Textarea(attrs={'class': 'form-input', 'rows': 5, 'placeholder': 'Describe the job in detail — include make/model, measurements, or access instructions.'}),
+            'budget':              forms.NumberInput(attrs={'class': 'form-input', 'placeholder': 'e.g. 150', 'min': '0', 'step': '0.01'}),
+            'town':                forms.Select(attrs={'class': 'form-input'}),
+            'preferred_date':      forms.DateInput(attrs={'class': 'form-input', 'type': 'date'}),
+            'materials_responsibility': forms.Select(attrs={'class': 'form-input'}),
+            'meals_provided':      forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'parking_available_flag': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'site_access_available': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'tools_required':      forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'rubbish_removal_required': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'after_hours_required': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'on_site_inspection_required': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'delivery_required':   forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'clean_up_required':   forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'client_provide_photos': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'warranty_followup_requested': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'materials_notes':     forms.Textarea(attrs={'class': 'form-input', 'rows': 3, 'placeholder': 'Optional details about materials or supplier access…'}),
+            'parking_notes':       forms.Textarea(attrs={'class': 'form-input', 'rows': 3, 'placeholder': 'Optional parking or entry details…'}),
+            'access_notes':        forms.Textarea(attrs={'class': 'form-input', 'rows': 3, 'placeholder': 'e.g. Side gate has a code, dogs on property…'}),
+            'special_instructions': forms.Textarea(attrs={'class': 'form-input', 'rows': 3, 'placeholder': 'Any special instructions for tradies…'}),
+            'urgency':             forms.Select(attrs={'class': 'form-input'}),
+            'budget_type':         forms.Select(attrs={'class': 'form-input'}),
+        }
+
+
+class TaskPhotoForm(forms.ModelForm):
+    class Meta:
+        model  = TaskPhoto
+        fields = ['image', 'caption']
+        widgets = {
+            'image':   forms.FileInput(attrs={'class': 'form-input', 'accept': 'image/*'}),
+            'caption': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. Kitchen tap close-up'}),
+        }
+
+
+# ── Quote form ────────────────────────────────────────────────────────────────
+
+class QuoteForm(forms.ModelForm):
+    class Meta:
+        model  = Quote
+        fields = [
+            'minimum_take_home_amount', 'price', 'customer_facing_quote',
+            'estimated_platform_fee', 'estimated_provider_take_home', 'fee_rule_applied',
+            'success_fee_rate_at_quote_time', 'success_fee_cap_at_quote_time',
+            'large_job_threshold_at_quote_time', 'large_job_fee_rate_at_quote_time',
+            'include_platform_fee', 'base_price', 'includes_materials',
+            'quote_includes', 'earliest_available_date', 'estimated_job_duration', 'warranty_or_followup_included',
+            'message'
+        ]
+        widgets = {
+            'minimum_take_home_amount':    forms.NumberInput(attrs={'class': 'form-input', 'placeholder': 'FJD $', 'min': '0', 'step': '0.01', 'id': 'id_minimum_take_home_amount'}),
+            'customer_facing_quote':       forms.HiddenInput(),
+            'estimated_platform_fee':      forms.HiddenInput(),
+            'estimated_provider_take_home': forms.HiddenInput(),
+            'fee_rule_applied':            forms.HiddenInput(),
+            'success_fee_rate_at_quote_time': forms.HiddenInput(),
+            'success_fee_cap_at_quote_time': forms.HiddenInput(),
+            'large_job_threshold_at_quote_time': forms.HiddenInput(),
+            'large_job_fee_rate_at_quote_time': forms.HiddenInput(),
+            'include_platform_fee':         forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'base_price':                   forms.NumberInput(attrs={'class': 'form-input', 'placeholder': 'e.g. 140', 'min': '0', 'step': '0.01'}),
+            'price':                        forms.NumberInput(attrs={'class': 'form-input', 'placeholder': 'Customer-facing quote total (FJD $)', 'min': '0', 'step': '0.01', 'id': 'id_price'}),
+            'includes_materials':           forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'quote_includes':               forms.Select(attrs={'class': 'form-input'}),
+            'earliest_available_date':      forms.DateInput(attrs={'class': 'form-input', 'type': 'date'}),
+            'estimated_job_duration':       forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. 2-3 days, Half day, etc'}),
+            'warranty_or_followup_included': forms.CheckboxInput(attrs={'class': 'form-checkbox'}),
+            'message':                      forms.Textarea(attrs={'class': 'form-input', 'rows': 4, 'placeholder': 'Introduce yourself, describe your approach, and state your availability…'}),
+        }
+
+    def clean_price(self):
+        price = self.cleaned_data.get('price')
+        if price is not None and price <= 0:
+            raise ValidationError('Customer-facing quote must be greater than zero.')
+        return price
+
+
+# ── Message form ──────────────────────────────────────────────────────────────
+
+class QuotingAppointmentForm(forms.Form):
+    slot_1_date  = forms.DateField(required=False, widget=forms.DateInput(attrs={'class': 'form-input', 'type': 'date'}))
+    slot_1_start = forms.TimeField(required=False, widget=forms.TimeInput(attrs={'class': 'form-input', 'type': 'time'}))
+    slot_1_end   = forms.TimeField(required=False, widget=forms.TimeInput(attrs={'class': 'form-input', 'type': 'time'}))
+
+    slot_2_date  = forms.DateField(required=False, widget=forms.DateInput(attrs={'class': 'form-input', 'type': 'date'}))
+    slot_2_start = forms.TimeField(required=False, widget=forms.TimeInput(attrs={'class': 'form-input', 'type': 'time'}))
+    slot_2_end   = forms.TimeField(required=False, widget=forms.TimeInput(attrs={'class': 'form-input', 'type': 'time'}))
+
+    slot_3_date  = forms.DateField(required=False, widget=forms.DateInput(attrs={'class': 'form-input', 'type': 'date'}))
+    slot_3_start = forms.TimeField(required=False, widget=forms.TimeInput(attrs={'class': 'form-input', 'type': 'time'}))
+    slot_3_end   = forms.TimeField(required=False, widget=forms.TimeInput(attrs={'class': 'form-input', 'type': 'time'}))
+
+    appointment_note = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'class': 'form-input', 'rows': 4, 'placeholder': 'I can inspect the site during any of these times. Please choose what works best.'})
+    )
+
+    def clean(self):
+        cd = super().clean()
+        slots = []
+        for i in range(1, 4):
+            date = cd.get(f'slot_{i}_date')
+            start = cd.get(f'slot_{i}_start')
+            end = cd.get(f'slot_{i}_end')
+            filled = bool(date or start or end)
+            if filled:
+                if not date or not start or not end:
+                    raise forms.ValidationError(f'Appointment option {i} needs a date, start time and end time.')
+                if start >= end:
+                    raise forms.ValidationError(f'Appointment option {i} must end after it starts.')
+                slots.append({'date': date, 'start': start, 'end': end})
+        if not slots:
+            raise forms.ValidationError('Please offer at least one appointment option.')
+        cd['slots'] = slots
+        return cd
+
+    def save(self, task, provider):
+        from .models import QuotingAppointment, QuotingAppointmentSlot
+        appointment = QuotingAppointment.objects.create(
+            task=task,
+            client=task.client,
+            provider=provider,
+            appointment_note=self.cleaned_data.get('appointment_note', ''),
+        )
+        for slot in self.cleaned_data['slots']:
+            QuotingAppointmentSlot.objects.create(
+                quoting_appointment=appointment,
+                proposed_date=slot['date'],
+                start_time=slot['start'],
+                end_time=slot['end'],
+            )
+        return appointment
+
+
+class MessageForm(forms.Form):
+    body = forms.CharField(
+        widget=forms.Textarea(attrs={'class': 'form-input', 'rows': 2, 'placeholder': 'Type a message…'})
+    )
+
+
+# ── Rating forms ──────────────────────────────────────────────────────────────
+
+SCORE_WIDGET = forms.RadioSelect
+
+class PublicReviewForm(forms.Form):
+    reliability_punctuality   = forms.ChoiceField(choices=[(i, i) for i in range(1, 6)], widget=SCORE_WIDGET)
+    quote_price_accuracy      = forms.ChoiceField(choices=[(i, i) for i in range(1, 6)], widget=SCORE_WIDGET)
+    value_for_money           = forms.ChoiceField(choices=[(i, i) for i in range(1, 6)], widget=SCORE_WIDGET)
+    service_quality_workmanship = forms.ChoiceField(choices=[(i, i) for i in range(1, 6)], widget=SCORE_WIDGET)
+    communication_after_service  = forms.ChoiceField(choices=[(i, i) for i in range(1, 6)], widget=SCORE_WIDGET)
+    timeline_schedule_delivery   = forms.ChoiceField(choices=[(i, i) for i in range(1, 6)], widget=SCORE_WIDGET)
+    comment                    = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'class': 'form-input', 'rows': 3, 'placeholder': 'Optional comment…'})
+    )
+
+
+class PrivateReviewForm(forms.Form):
+    access_readiness = forms.ChoiceField(choices=[(i, i) for i in range(1, 6)], widget=SCORE_WIDGET)
+    scope_clarity    = forms.ChoiceField(choices=[(i, i) for i in range(1, 6)], widget=SCORE_WIDGET)
+    communication    = forms.ChoiceField(choices=[(i, i) for i in range(1, 6)], widget=SCORE_WIDGET)
+    payment          = forms.ChoiceField(choices=[(i, i) for i in range(1, 6)], widget=SCORE_WIDGET)
+    conduct          = forms.ChoiceField(choices=[(i, i) for i in range(1, 6)], widget=SCORE_WIDGET)
+    comment          = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'class': 'form-input', 'rows': 3, 'placeholder': 'Optional note for dispute records…'})
+    )

@@ -1,0 +1,194 @@
+{% extends "marketplace/base.html" %}
+{% block title %}Provider Sign Up – Coconut Wireless{% endblock %}
+
+{% block extra_css %}
+<style>
+.reg-page{padding:32px 0 50px;}
+.reg-wrap{max-width:580px;margin:0 auto;}
+.reg-wrap h1{font-size:1.7rem;margin:0 0 4px;}
+.reg-wrap .sub{color:var(--muted);margin:0 0 18px;font-size:.9rem;}
+.reg-wrap .sub a{color:var(--blue);text-decoration:none;font-weight:600;}
+.info-band{background:var(--blue-light);border-radius:12px;padding:13px 16px;font-size:.87rem;color:var(--blue-dark);margin-bottom:18px;}
+.form-card{background:var(--white);border-radius:18px;box-shadow:0 4px 18px rgba(0,80,120,.08);padding:24px;margin-bottom:18px;}
+.form-card h2{font-size:1rem;color:var(--blue);margin:0 0 16px;padding-bottom:9px;border-bottom:1px solid var(--blue-light);}
+.trades-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(138px,1fr));gap:8px;}
+.trade-chip{display:flex;align-items:center;gap:8px;padding:9px 12px;border:1.5px solid #cce4ef;border-radius:10px;font-size:.85rem;cursor:pointer;}
+.trade-chip input{accent-color:var(--blue);}
+.trade-chip:has(input:checked){border-color:var(--blue);background:var(--blue-light);color:var(--blue);font-weight:600;}
+.town-chips{display:flex;gap:8px;flex-wrap:wrap;}
+.town-chip{display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid #cce4ef;border-radius:20px;font-size:.85rem;cursor:pointer;}
+.town-chip input{accent-color:var(--blue);}
+.town-chip:has(input:checked){border-color:var(--blue);background:var(--blue-light);color:var(--blue);font-weight:600;}
+.check-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:18px;font-size:.87rem;color:var(--muted);line-height:1.5;}
+.check-row input{margin-top:2px;accent-color:var(--blue);}
+.check-row a{color:var(--blue);text-decoration:none;}
+.upload-field{border:1.5px dashed #9cc7db;border-radius:10px;padding:12px 14px;background:#f7fcff;}
+.upload-field input[type=file]{width:100%;}
+.upload-field .hint{margin-top:4px;font-size:.78rem;color:var(--muted);}
+.conditional-doc{display:none;}
+.required-badge{font-size:.75rem;background:#e8f7ff;color:var(--blue);border-radius:6px;padding:2px 7px;margin-left:6px;font-weight:600;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container reg-page">
+  <div class="reg-wrap">
+    <h1>Join as a Provider / Local Pro</h1>
+    <p class="sub">Looking to hire? <a href="{% url 'register_client' %}">Sign up as a client</a> &nbsp;|&nbsp; Already have an account? <a href="{% url 'login' %}">Log in</a></p>
+    <div class="info-band">✅ Free to join · Get notified of jobs near you · Only pay when you win work</div>
+
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+
+      <div class="form-card">
+        <h2>Personal details</h2>
+        <div class="row2">
+          <div class="field"><label>First name</label>{{ form.first_name }}{% for e in form.first_name.errors %}<div class="field-error">{{e}}</div>{% endfor %}</div>
+          <div class="field"><label>Last name</label>{{ form.last_name }}{% for e in form.last_name.errors %}<div class="field-error">{{e}}</div>{% endfor %}</div>
+        </div>
+        <div class="field"><label>Email address</label>{{ form.email }}{% for e in form.email.errors %}<div class="field-error">{{e}}</div>{% endfor %}</div>
+        <div class="row2">
+          <div class="field"><label>Mobile</label>{{ form.mobile }}</div>
+          <div class="field"><label>Town / Service Area</label>{{ form.town }}{% for e in form.town.errors %}<div class="field-error">{{e}}</div>{% endfor %}</div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>Password</label>{{ form.password }}</div>
+          <div class="field"><label>Confirm password</label>{{ form.password_confirm }}</div>
+        </div>
+      </div>
+
+      <div class="form-card">
+        <h2>Business details</h2>
+        <div class="row2">
+          <div class="field">
+            <label>Company / Business Name <span class="required-badge">Required</span></label>
+            {{ form.business_name }}
+            {% for e in form.business_name.errors %}<div class="field-error">{{e}}</div>{% endfor %}
+          </div>
+          <div class="field">
+            <label>TIN Number <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+            {{ form.tin }}
+          </div>
+        </div>
+        <div class="field"><label>Years of experience</label>{{ form.years_experience }}{% for e in form.years_experience.errors %}<div class="field-error">{{e}}</div>{% endfor %}</div>
+        <div class="field">
+          <label>Trade / Service Categories <span class="required-badge">Required</span></label>
+          <div class="trades-grid" id="trades-grid">
+            {% for value, label in trade_choices %}
+            <label class="trade-chip">
+              <input type="checkbox" name="trades" value="{{ value }}"
+                {% if value in form.trades.value %}checked{% endif %}>
+              {{ label }}
+            </label>
+            {% endfor %}
+          </div>
+          {% for e in form.trades.errors %}<div class="field-error">{{e}}</div>{% endfor %}
+        </div>
+        <div class="field">
+          <label>Towns you service <span class="required-badge">Required</span></label>
+          <div class="town-chips">
+            {% for value, label in town_choices %}
+            <label class="town-chip">
+              <input type="checkbox" name="service_towns" value="{{ value }}"
+                {% if value in form.service_towns.value %}checked{% endif %}>
+              {{ label }}
+            </label>
+            {% endfor %}
+          </div>
+          {% for e in form.service_towns.errors %}<div class="field-error">{{e}}</div>{% endfor %}
+        </div>
+        <div class="field">
+          <label>Bio</label>
+          {{ form.bio }}
+          <div class="hint">A strong bio increases quote acceptance by up to 40%.</div>
+        </div>
+      </div>
+
+      <div class="form-card">
+        <h2>Verification documents</h2>
+        <p style="font-size:.85rem;color:var(--muted);margin:0 0 16px;">Documents are reviewed by our team before your profile is approved. PDF or image files accepted.</p>
+
+        <div class="field">
+          <label>TIN Letter <span class="required-badge">Required</span></label>
+          <div class="upload-field">
+            {{ form.tin_letter }}
+            <div class="hint">Upload your FRCA Tax Identification Number letter.</div>
+          </div>
+          {% for e in form.tin_letter.errors %}<div class="field-error">{{e}}</div>{% endfor %}
+        </div>
+
+        <div class="field">
+          <label>Business Licence <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+          <div class="upload-field">
+            {{ form.business_licence }}
+          </div>
+          {% for e in form.business_licence.errors %}<div class="field-error">{{e}}</div>{% endfor %}
+        </div>
+
+        <div class="field">
+          <label>Public Liability Insurance <span style="color:var(--muted);font-weight:400">(optional)</span></label>
+          <div class="upload-field">
+            {{ form.public_liability_insurance }}
+          </div>
+          {% for e in form.public_liability_insurance.errors %}<div class="field-error">{{e}}</div>{% endfor %}
+        </div>
+
+        <div class="field conditional-doc" id="electrical-licence-field">
+          <label>Electrical Contractors Licence <span class="required-badge">Required for Electrical</span></label>
+          <div class="upload-field">
+            {{ form.electrical_contractors_licence }}
+          </div>
+          {% for e in form.electrical_contractors_licence.errors %}<div class="field-error">{{e}}</div>{% endfor %}
+        </div>
+
+        <div class="field conditional-doc" id="plumber-licence-field">
+          <label>Plumber Licence <span class="required-badge">Required for Plumbing</span></label>
+          <div class="upload-field">
+            {{ form.plumber_licence }}
+          </div>
+          {% for e in form.plumber_licence.errors %}<div class="field-error">{{e}}</div>{% endfor %}
+        </div>
+      </div>
+
+      {% if form.non_field_errors %}<div class="field-error" style="margin-bottom:12px;">{{ form.non_field_errors }}</div>{% endif %}
+
+      <div class="check-row">
+        {{ form.accepted_terms }}
+        <span>I agree to the <a href="{% url 'terms' %}" target="_blank">Terms &amp; Conditions, Privacy Policy and Platform Rules</a></span>
+      </div>
+      {% for e in form.accepted_terms.errors %}<div class="field-error" style="margin-bottom:8px;">{{ e }}</div>{% endfor %}
+
+      <div class="check-row">
+        {{ form.accepted_platform_circumvention }}
+        <span>I understand and accept the <a href="{% url 'terms' %}#circumvention" target="_blank">Platform Circumvention Fee policy</a> — off-platform work may result in a fee of 5% of job value (minimum FJD $50), payable by both parties.</span>
+      </div>
+      {% for e in form.accepted_platform_circumvention.errors %}<div class="field-error" style="margin-bottom:8px;">{{ e }}</div>{% endfor %}
+
+      <div class="check-row">
+        {{ form.accepted_invoicing_terms }}
+        <span>I understand I will receive platform fee invoices upon job completion and agree to pay within the stated due date.</span>
+      </div>
+      {% for e in form.accepted_invoicing_terms.errors %}<div class="field-error" style="margin-bottom:8px;">{{ e }}</div>{% endfor %}
+
+      <button type="submit" class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem;">Create provider account →</button>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  var grid = document.getElementById('trades-grid');
+  var elField = document.getElementById('electrical-licence-field');
+  var plField = document.getElementById('plumber-licence-field');
+
+  function update() {
+    var checked = Array.from(grid.querySelectorAll('input[type=checkbox]:checked')).map(function(c){return c.value;});
+    elField.style.display = checked.indexOf('electrical') !== -1 ? 'block' : 'none';
+    plField.style.display = checked.indexOf('plumbing') !== -1 ? 'block' : 'none';
+  }
+
+  grid.addEventListener('change', update);
+  update();
+})();
+</script>
+{% endblock %}

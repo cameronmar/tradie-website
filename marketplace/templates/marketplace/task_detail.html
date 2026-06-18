@@ -1,0 +1,492 @@
+{% extends "marketplace/base.html" %}
+{% block title %}{{ task.title }} – Coconut Wireless{% endblock %}
+
+{% block extra_css %}
+<style>
+.td-page{padding:0 0 50px;}
+.td-grid{display:grid;grid-template-columns:1fr 320px;gap:22px;padding-top:18px;}
+.task-hdr{background:var(--white);border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.08);padding:24px;margin-bottom:16px;}
+.task-hdr h1{font-size:1.5rem;margin:0 0 12px;}
+.meta-row{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px;font-size:.87rem;color:var(--muted);}
+.meta-row strong{color:var(--text);}
+.sect-card{background:var(--white);border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.08);padding:22px;margin-bottom:14px;}
+.sect-card h2{font-size:1rem;color:var(--blue);margin:0 0 14px;padding-bottom:9px;border-bottom:1px solid var(--blue-light);}
+.desc-text{color:var(--muted);font-size:.9rem;line-height:1.7;}
+/* Quote cards */
+.qc{border:1.5px solid #dde8ef;border-radius:12px;padding:15px;margin-bottom:11px;transition:border-color .2s;}
+.qc:hover{border-color:var(--blue);}
+.qc-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:9px;}
+.tradie-info{display:flex;gap:10px;align-items:center;}
+.av{width:42px;height:42px;border-radius:50%;background:var(--blue);color:var(--white);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.95rem;flex-shrink:0;}
+.t-name{font-weight:700;font-size:.9rem;margin-bottom:2px;}
+.t-meta{font-size:.78rem;color:var(--muted);}
+.q-amount{font-size:1.2rem;font-weight:800;color:var(--blue);text-align:right;}
+.q-currency{font-size:.72rem;color:var(--muted);}
+.q-msg{font-size:.86rem;color:var(--muted);line-height:1.6;margin-bottom:10px;}
+.q-actions{display:flex;gap:8px;flex-wrap:wrap;}
+/* Sidebar */
+.side-card{background:var(--white);border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.08);padding:20px;margin-bottom:14px;position:sticky;top:16px;}
+.side-card h3{font-size:.94rem;color:var(--blue);margin:0 0 12px;}
+.det-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f5f8;font-size:.88rem;}
+.det-row:last-of-type{border:none;}
+.det-row .lbl{color:var(--muted);}
+.poster-row{display:flex;gap:10px;align-items:center;margin-bottom:10px;}
+.poster-av{width:44px;height:44px;border-radius:50%;background:#dde8ef;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;}
+.action-banner{background:var(--blue-light);border-radius:12px;padding:14px;text-align:center;margin-bottom:14px;font-size:.9rem;}
+.action-banner a,.action-banner button{display:inline-block;margin-top:8px;}
+@media(max-width:800px){.td-grid{grid-template-columns:1fr;}.side-card{position:static;}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container td-page">
+  <div class="breadcrumb">
+    <a href="{% url 'home' %}">Home</a> ›
+    <a href="{% url 'browse_tasks' %}">Browse Tasks</a> ›
+    {{ task.title }}
+  </div>
+
+  <div class="td-grid">
+    <div>
+      <div class="task-hdr">
+        <span class="chip chip-{{ task.status }}">{{ task.get_status_display }}</span>
+        <h1 style="margin-top:10px;">{{ task.title }}</h1>
+        <div class="meta-row">
+          <span>{{ task.get_category_display }}</span>
+          <span>📍 <strong>{{ task.town }}</strong></span>
+          <span>💰 <strong>FJD ${{ task.budget }}</strong></span>
+          {% if task.preferred_date %}<span>📅 <strong>{{ task.preferred_date }}</strong></span>{% endif %}
+          <span>🕐 Posted {{ task.created_at|timesince }} ago</span>
+        </div>
+        {% if task.status == 'completed' %}
+          {% if can_rate_tradie %}
+            <div class="action-banner">
+              Job complete — please rate {{ task.assigned_tradie.first_name }}'s work.
+              <a href="{% url 'rate_tradie' task.pk %}" class="btn btn-primary btn-sm">Leave a review</a>
+            </div>
+          {% endif %}
+          {% if can_rate_client %}
+            <div class="action-banner">
+              Job complete — please submit your private feedback for {{ task.client.first_name }}.
+              <a href="{% url 'rate_client' task.pk %}" class="btn btn-primary btn-sm">Submit feedback</a>
+            </div>
+          {% endif %}
+        {% endif %}
+      </div>
+
+      <div class="sect-card">
+        <h2>Job description</h2>
+        <p class="desc-text">{{ task.description }}</p>
+      </div>
+
+      {% if can_book_appointment %}
+      <div class="sect-card action-banner" style="text-align:left;">
+        <h2 style="font-size:1rem;color:var(--blue);margin-top:0;">Book quoting appointment</h2>
+        <p class="desc-text" style="margin-bottom:14px;">
+          Need to inspect the job before quoting? Offer up to three times so the client can confirm an appointment without back-and-forth messaging.
+        </p>
+        <a href="{% url 'book_quoting_appointment' task.pk %}" class="btn btn-primary">Book quoting appointment</a>
+      </div>
+      {% endif %}
+
+      {% if appointments %}
+      <div class="sect-card">
+        <h2>Quoting appointments</h2>
+        {% for appointment in appointments %}
+        <div class="qc">
+          <div class="qc-hdr">
+            <div class="tradie-info">
+              <div class="av">{{ appointment.provider.initials }}</div>
+              <div>
+                <div class="t-name">{{ appointment.provider.full_name }}</div>
+                <div class="t-meta">{{ appointment.provider.town }}</div>
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <div class="q-currency">{{ appointment.get_status_display }}</div>
+              {% if appointment.selected_slot %}
+              <div class="q-msg" style="margin-top:4px;">Confirmed: {{ appointment.selected_slot.proposed_date }} {{ appointment.selected_slot.start_time|time:"H:i" }}–{{ appointment.selected_slot.end_time|time:"H:i" }}</div>
+              {% endif %}
+            </div>
+          </div>
+          {% if appointment.appointment_note %}
+          <p class="q-msg">{{ appointment.appointment_note }}</p>
+          {% endif %}
+          <div class="q-msg" style="margin-bottom:10px;">
+            <strong>Proposed times</strong>
+            <ul style="margin:8px 0 0 18px;">
+              {% for slot in appointment.slots.all %}
+              <li>
+                {{ slot.proposed_date }} {{ slot.start_time|time:"H:i" }}–{{ slot.end_time|time:"H:i" }}
+                {% if slot.is_selected %}<strong>– selected</strong>{% endif %}
+              </li>
+              {% endfor %}
+            </ul>
+          </div>
+          <div class="q-actions">
+            {% if user == task.client and appointment.status == 'requested' %}
+              {% for slot in appointment.slots.all %}
+              <form method="post" action="{% url 'accept_quoting_appointment_slot' task.pk appointment.pk slot.pk %}" style="margin:0;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-outline-blue">Confirm {{ slot.proposed_date }} {{ slot.start_time|time:"H:i" }}</button>
+              </form>
+              {% endfor %}
+              <form method="post" action="{% url 'decline_quoting_appointment' task.pk appointment.pk %}" style="margin:0;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger btn-sm">Decline all options</button>
+              </form>
+            {% endif %}
+            {% if user == appointment.provider and appointment.status == 'requested' %}
+              <form method="post" action="{% url 'cancel_quoting_appointment' task.pk appointment.pk %}" style="margin:0;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger btn-sm">Cancel request</button>
+              </form>
+            {% endif %}
+            {% if user.is_authenticated %}
+              {% if user == task.client %}
+                <a href="{% url 'conversation' task.pk appointment.provider.pk %}" class="btn btn-outline-blue btn-sm">Message provider</a>
+              {% elif user == appointment.provider %}
+                <a href="{% url 'conversation' task.pk task.client.pk %}" class="btn btn-outline-blue btn-sm">Message client</a>
+              {% endif %}
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if user.is_authenticated %}
+        {% if quotes %}
+        <div class="sect-card">
+          <h2>Quotes{% if user == task.client %} ({{ quotes|length }}){% endif %}</h2>
+          {% for q in quotes %}
+          <div class="qc">
+            <div class="qc-hdr">
+              <div class="tradie-info">
+                <div class="av">{{ q.tradie.initials }}</div>
+                <div>
+                  <div class="t-name">
+                    <a href="{% url 'tradie_profile' q.tradie.pk %}" style="text-decoration:none;color:inherit;">{{ q.tradie.full_name }}</a>
+                  </div>
+                  <div class="t-meta">{{ q.tradie.town }}</div>
+                </div>
+              </div>
+              <div>
+                <div class="q-currency">Quote</div>
+                <div class="q-amount">FJD ${{ q.price }}</div>
+                <span class="chip chip-{{ q.status }}" style="display:block;margin-top:4px;text-align:right;">{{ q.get_status_display }}</span>
+              </div>
+            </div>
+            <p class="q-msg">{{ q.message }}</p>
+            {% if q.quote_includes %}
+            <p class="q-msg"><strong>Quote includes:</strong> {{ q.get_quote_includes_display }}</p>
+            {% endif %}
+            <div class="q-actions">
+              {% if can_accept and q.status == 'pending' %}
+                <form method="post" action="{% url 'accept_quote' task.pk q.pk %}">{% csrf_token %}
+                  <button type="submit" class="btn btn-success btn-sm">Accept quote</button>
+                </form>
+              {% endif %}
+              <a href="{% url 'conversation' task.pk q.tradie.pk %}" class="btn btn-outline-blue btn-sm">Message</a>
+              <a href="{% url 'tradie_profile' q.tradie.pk %}" class="btn btn-sm" style="background:#f0f5f8;color:var(--blue);">View profile</a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if user_quote %}
+        <div class="sect-card">
+          <h2>Your quote</h2>
+          <div class="qc">
+            <div class="qc-hdr">
+              <span>Status: <span class="chip chip-{{ user_quote.status }}">{{ user_quote.get_status_display }}</span></span>
+              <div class="q-amount">FJD ${{ user_quote.price }}</div>
+            </div>
+            <p class="q-msg">{{ user_quote.message }}</p>
+          </div>
+        </div>
+        {% endif %}
+
+        {% if can_quote %}
+        <div class="sect-card">
+          <h2>Submit a quote</h2>
+          <form method="post" action="{% url 'submit_quote' task.pk %}">
+            {% csrf_token %}
+            <div class="field" style="margin-bottom:14px;">
+              <label>Minimum amount I want to take home</label>
+              {{ quote_form.minimum_take_home_amount }}
+            </div>
+            <button type="button" id="calculate-quote" class="btn btn-outline-blue" style="width:100%;margin-bottom:18px;">Calculate Customer Quote</button>
+
+            <div class="field" style="margin-bottom:14px;">
+              <label>Customer-facing quote (FJD $)</label>
+              {{ quote_form.price }}
+            </div>
+            <div id="quote-calculator-results" style="display:none;padding:14px 0;border-top:1px solid #eef5f8;">
+              <div class="field" style="margin-bottom:10px;">
+                <strong>Estimated Coconut Wireless fee:</strong>
+                <div id="quote_fee_display">FJD $0.00</div>
+              </div>
+              <div class="field" style="margin-bottom:10px;">
+                <strong>Estimated take-home:</strong>
+                <div id="quote_take_home_display">FJD $0.00</div>
+              </div>
+              <div class="field" style="margin-bottom:10px;">
+                <strong>Fee rule applied:</strong>
+                <div id="fee_rule_display">Standard 7.5%</div>
+              </div>
+            </div>
+            <p class="desc-text" style="margin-top:10px;">This estimate is based on the current Coconut Wireless fee structure. The final platform fee is calculated from the final completed job value.</p>
+
+            <div style="display:none;">
+              {{ quote_form.customer_facing_quote }}
+              {{ quote_form.estimated_platform_fee }}
+              {{ quote_form.estimated_provider_take_home }}
+              {{ quote_form.fee_rule_applied }}
+              {{ quote_form.success_fee_rate_at_quote_time }}
+              {{ quote_form.success_fee_cap_at_quote_time }}
+              {{ quote_form.large_job_threshold_at_quote_time }}
+              {{ quote_form.large_job_fee_rate_at_quote_time }}
+            </div>
+
+            <div class="field">
+              <label>Quote includes</label>
+              {{ quote_form.quote_includes }}
+              <div class="hint">Let the client know what's covered by this quote.</div>
+            </div>
+
+            <div class="field">
+              <label>Message to the client</label>
+              {{ quote_form.message }}
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%;">Send quote</button>
+          </form>
+        </div>
+        {% endif %}
+      {% else %}
+        <div class="sect-card">
+          <p class="desc-text"><a href="{% url 'login' %}?next={{ request.path }}">Log in</a> to see quotes and submit your own.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <div>
+      <div class="side-card">
+        <h3>Task summary</h3>
+        <div class="det-row"><span class="lbl">Status</span><span class="chip chip-{{ task.status }}">{{ task.get_status_display }}</span></div>
+        <div class="det-row"><span class="lbl">Category</span><span>{{ task.get_category_display }}</span></div>
+        <div class="det-row"><span class="lbl">Town</span><span>{{ task.town }}</span></div>
+        <div class="det-row"><span class="lbl">Budget</span><span class="fw-bold text-blue">FJD ${{ task.budget }}</span></div>
+        <div class="det-row"><span class="lbl">Quotes</span><span>{{ task.quote_count }}</span></div>
+        {% if task.materials_responsibility or task.meals_provided or task.parking_available_flag or task.site_access_available or task.tools_required or task.rubbish_removal_required or task.after_hours_required or task.on_site_inspection_required or task.delivery_required or task.clean_up_required or task.client_provide_photos or task.warranty_followup_requested %}
+        <div class="det-row" style="flex-direction:column;align-items:flex-start;gap:8px;">
+          <span class="lbl">Materials & job inclusions</span>
+          <div style="font-size:.86rem;color:var(--muted);line-height:1.5;">
+            {% if task.materials_responsibility %}<div><strong>{{ task.get_materials_responsibility_display }}</strong></div>{% endif %}
+            <ul style="margin:8px 0 0 18px;padding-left:0;list-style:disc;">
+              {% if task.meals_provided %}<li>Meals or refreshments provided</li>{% endif %}
+              {% if task.parking_available_flag %}<li>Parking available</li>{% endif %}
+              {% if task.site_access_available %}<li>Site access available</li>{% endif %}
+              {% if task.tools_required %}<li>Tools/equipment required from provider</li>{% endif %}
+              {% if task.rubbish_removal_required %}<li>Rubbish/disposal removal required</li>{% endif %}
+              {% if task.after_hours_required %}<li>After-hours or weekend work required</li>{% endif %}
+              {% if task.on_site_inspection_required %}<li>On-site quote / inspection required</li>{% endif %}
+              {% if task.delivery_required %}<li>Delivery or transport required</li>{% endif %}
+              {% if task.clean_up_required %}<li>Clean-up after job required</li>{% endif %}
+              {% if task.client_provide_photos %}<li>Client will provide photos/details before quote</li>{% endif %}
+              {% if task.warranty_followup_requested %}<li>Provider should include warranty/follow-up if applicable</li>{% endif %}
+            </ul>
+            {% if task.materials_notes %}<div style="margin-top:8px;"><strong>Materials notes:</strong> {{ task.materials_notes }}</div>{% endif %}
+            {% if task.parking_notes %}<div><strong>Parking notes:</strong> {{ task.parking_notes }}</div>{% endif %}
+            {% if task.special_instructions %}<div><strong>Instructions:</strong> {{ task.special_instructions }}</div>{% endif %}
+          </div>
+        </div>
+        {% endif %}
+        {% if task.preferred_date %}<div class="det-row"><span class="lbl">Preferred date</span><span>{{ task.preferred_date }}</span></div>{% endif %}
+        {% if can_complete %}
+          <form method="post" action="{% url 'complete_task' task.pk %}" style="margin-top:14px;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success" style="width:100%;">Mark as complete ✓</button>
+          </form>
+        {% endif %}
+        {% if user.is_authenticated and user != task.client and user.role == 'tradie' and not user_quote and can_quote %}
+          <button onclick="document.querySelector('.sect-card form').scrollIntoView({behavior:'smooth'})" class="btn btn-primary" style="width:100%;margin-top:14px;">Submit a quote</button>
+        {% endif %}
+      </div>
+
+      <div class="side-card">
+        <h3>Posted by</h3>
+        <div class="poster-row">
+          <div class="poster-av">👤</div>
+          <div>
+            <div class="fw-bold">{{ task.client.first_name }} {{ task.client.last_name|slice:":1" }}.</div>
+            <div style="font-size:.8rem;color:var(--muted);">Member since {{ task.client.date_joined|date:"Y" }}</div>
+          </div>
+        </div>
+        {% if can_message_client %}
+          <a href="{% url 'conversation' task.pk task.client.pk %}" class="btn btn-outline-blue btn-sm" style="width:100%;text-align:center;">Message client</a>
+        {% endif %}
+      </div>
+
+      {% if sponsors %}
+      <div class="side-card" style="padding:12px;">
+        <p style="font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px;">Sponsored</p>
+        {% for s in sponsors %}
+        <a href="{{ s.destination_url }}" target="_blank" rel="noopener sponsored" title="{{ s.business_name }}">
+          <img src="{{ s.banner_image.url }}" alt="{{ s.business_name }}" style="width:100%;border-radius:8px;display:block;{% if not forloop.last %}margin-bottom:8px;{% endif %}">
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  const settings = {
+    successFeeRate: parseFloat('{{ platform_settings.success_fee_rate }}'),
+    feeCap: parseFloat('{{ platform_settings.success_fee_cap }}'),
+    largeThreshold: parseFloat('{{ platform_settings.large_job_threshold }}'),
+    largeFeeRate: parseFloat('{{ platform_settings.large_job_fee_rate }}'),
+  };
+
+  const form = document.querySelector('form[action="{{ submit_quote_url }}"]');
+  if (!form) return;
+
+  const minInput = form.querySelector('[name="minimum_take_home_amount"]');
+  const priceInput = form.querySelector('[name="price"]');
+  const hiddenCustomerFacing = form.querySelector('[name="customer_facing_quote"]');
+  const hiddenPlatformFee = form.querySelector('[name="estimated_platform_fee"]');
+  const hiddenProviderTakeHome = form.querySelector('[name="estimated_provider_take_home"]');
+  const hiddenFeeRule = form.querySelector('[name="fee_rule_applied"]');
+  const hiddenSuccessRate = form.querySelector('[name="success_fee_rate_at_quote_time"]');
+  const hiddenSuccessCap = form.querySelector('[name="success_fee_cap_at_quote_time"]');
+  const hiddenLargeThreshold = form.querySelector('[name="large_job_threshold_at_quote_time"]');
+  const hiddenLargeRate = form.querySelector('[name="large_job_fee_rate_at_quote_time"]');
+  const resultBox = document.getElementById('quote-calculator-results');
+  const feeDisplay = document.getElementById('quote_fee_display');
+  const takeHomeDisplay = document.getElementById('quote_take_home_display');
+  const ruleDisplay = document.getElementById('fee_rule_display');
+
+  function formatFJD(value) {
+    return 'FJD $' + value.toFixed(2);
+  }
+
+  function roundValue(value) {
+    return Math.round(value * 100) / 100;
+  }
+
+  function calculateFromQuote(quote) {
+    const customer = quote;
+    const standardFee = roundValue(customer * settings.successFeeRate / 100);
+    let fee, rule;
+
+    if (customer > settings.largeThreshold) {
+      fee = roundValue(customer * settings.largeFeeRate / 100);
+      rule = `Large job ${settings.largeFeeRate}%`;
+    } else {
+      fee = standardFee;
+      if (fee > settings.feeCap) {
+        fee = roundValue(settings.feeCap);
+        rule = `Standard ${settings.successFeeRate}% / FJD $${roundValue(settings.feeCap).toFixed(2)} cap`;
+      } else {
+        rule = `Standard ${settings.successFeeRate}%`;
+      }
+    }
+
+    const takeHome = roundValue(customer - fee);
+    return {
+      customer_facing_quote: roundValue(customer),
+      estimated_platform_fee: fee,
+      estimated_provider_take_home: takeHome,
+      fee_rule_applied: rule,
+      success_fee_rate_at_quote_time: settings.successFeeRate,
+      success_fee_cap_at_quote_time: settings.feeCap,
+      large_job_threshold_at_quote_time: settings.largeThreshold,
+      large_job_fee_rate_at_quote_time: settings.largeFeeRate,
+    };
+  }
+
+  function calculateFromTakeHome(minimum) {
+    const standardMultiplier = 1 - settings.successFeeRate / 100;
+    let customer = minimum / standardMultiplier;
+    let fee = roundValue(customer * settings.successFeeRate / 100);
+    let rule = `Standard ${settings.successFeeRate}%`;
+
+    if (customer > settings.largeThreshold) {
+      customer = minimum / (1 - settings.largeFeeRate / 100);
+      fee = roundValue(customer - minimum);
+      rule = `Large job ${settings.largeFeeRate}%`;
+    } else if (fee > settings.feeCap) {
+      customer = minimum + settings.feeCap;
+      fee = roundValue(settings.feeCap);
+      rule = `Standard ${settings.successFeeRate}% / FJD $${roundValue(settings.feeCap).toFixed(2)} cap`;
+    }
+
+    customer = roundValue(customer);
+    fee = roundValue(fee);
+    const takeHome = roundValue(customer - fee);
+
+    return {
+      customer_facing_quote: customer,
+      estimated_platform_fee: fee,
+      estimated_provider_take_home: takeHome,
+      fee_rule_applied: rule,
+      success_fee_rate_at_quote_time: settings.successFeeRate,
+      success_fee_cap_at_quote_time: settings.feeCap,
+      large_job_threshold_at_quote_time: settings.largeThreshold,
+      large_job_fee_rate_at_quote_time: settings.largeFeeRate,
+    };
+  }
+
+  function updateCalculatorDisplay(values) {
+    if (!resultBox) return;
+    feeDisplay.textContent = formatFJD(values.estimated_platform_fee);
+    takeHomeDisplay.textContent = formatFJD(values.estimated_provider_take_home);
+    ruleDisplay.textContent = values.fee_rule_applied;
+    resultBox.style.display = 'block';
+
+    if (hiddenCustomerFacing) hiddenCustomerFacing.value = values.customer_facing_quote.toFixed(2);
+    if (hiddenPlatformFee) hiddenPlatformFee.value = values.estimated_platform_fee.toFixed(2);
+    if (hiddenProviderTakeHome) hiddenProviderTakeHome.value = values.estimated_provider_take_home.toFixed(2);
+    if (hiddenFeeRule) hiddenFeeRule.value = values.fee_rule_applied;
+    if (hiddenSuccessRate) hiddenSuccessRate.value = values.success_fee_rate_at_quote_time;
+    if (hiddenSuccessCap) hiddenSuccessCap.value = values.success_fee_cap_at_quote_time;
+    if (hiddenLargeThreshold) hiddenLargeThreshold.value = values.large_job_threshold_at_quote_time;
+    if (hiddenLargeRate) hiddenLargeRate.value = values.large_job_fee_rate_at_quote_time;
+  }
+
+  function handlePriceChange() {
+    const price = parseFloat(priceInput.value);
+    if (!isNaN(price) && price > 0) {
+      const values = calculateFromQuote(price);
+      updateCalculatorDisplay(values);
+      if (hiddenCustomerFacing) hiddenCustomerFacing.value = price.toFixed(2);
+    }
+  }
+
+  const calculateButton = document.getElementById('calculate-quote');
+  if (calculateButton) {
+    calculateButton.addEventListener('click', function(event){
+      event.preventDefault();
+      const minimum = parseFloat(minInput.value);
+      if (isNaN(minimum) || minimum <= 0) {
+        alert('Please enter a valid minimum take-home amount greater than zero.');
+        return;
+      }
+      const values = calculateFromTakeHome(minimum);
+      if (priceInput) priceInput.value = values.customer_facing_quote.toFixed(2);
+      updateCalculatorDisplay(values);
+    });
+  }
+
+  if (priceInput) {
+    priceInput.addEventListener('input', handlePriceChange);
+  }
+})();
+</script>
+{% endblock %}
