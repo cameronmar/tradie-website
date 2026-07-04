@@ -795,7 +795,10 @@ class PlatformCircumventionCase(models.Model):
             fee_percentage = Decimal('5.00')
         if minimum_fee is None:
             minimum_fee = Decimal('50.00')
-        fee = total_job_value * fee_percentage / 100
+        total_job_value = Decimal(str(total_job_value))
+        fee_percentage  = Decimal(str(fee_percentage))
+        minimum_fee     = Decimal(str(minimum_fee))
+        fee = total_job_value * fee_percentage / Decimal('100')
         return max(fee, minimum_fee)
 
 

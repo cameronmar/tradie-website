@@ -109,7 +109,7 @@
           <div class="rat-summary">
             <div class="big-rat">{{ overall }}</div>
             <div>
-              <div class="stars-big">{% for i in "12345" %}{% if forloop.counter <= overall|floatformat:"0" %}★{% else %}☆{% endif %}{% endfor %}</div>
+              <div class="stars-big">{% for i in "12345" %}{% if forloop.counter <= overall %}★{% else %}☆{% endif %}{% endfor %}</div>
               <div style="font-size:.82rem;color:var(--muted);">{{ review_count }} review{{ review_count|pluralize }}</div>
             </div>
           </div>
@@ -129,7 +129,7 @@
                 <div class="rev-name">{{ r.rater.first_name }} {{ r.rater.last_name|slice:":1" }}.</div>
                 <div class="rev-date">{{ r.created_at|date:"N j, Y" }}</div>
               </div>
-              <div class="rev-stars">{% with ov=r.overall|floatformat:"0" %}{% for i in "12345" %}{% if forloop.counter0 < ov|add:"0" %}★{% else %}☆{% endif %}{% endfor %}{% endwith %}</div>
+              <div class="rev-stars">{% with ov=r.overall %}{% for i in "12345" %}{% if forloop.counter <= ov %}★{% else %}☆{% endif %}{% endfor %}{% endwith %}</div>
             </div>
             {% if r.comment %}<p class="rev-text">{{ r.comment }}</p>{% endif %}
             <div class="rev-job">Job: {{ r.task.title }}</div>

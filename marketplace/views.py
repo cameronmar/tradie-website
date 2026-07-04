@@ -536,6 +536,9 @@ def rate_tradie(request, pk):
     if PublicReview.objects.filter(task=task, rater=request.user).exists():
         flash.info(request, 'You have already reviewed this job.')
         return redirect('task_detail', pk=pk)
+    if not task.assigned_tradie:
+        flash.error(request, 'This task has no assigned provider to review.')
+        return redirect('task_detail', pk=pk)
     form = PublicReviewForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
         cd = form.cleaned_data
@@ -552,7 +555,7 @@ def rate_tradie(request, pk):
             comment                    = cd.get('comment', ''),
         )
         flash.success(request, 'Vinaka! Your review has been posted.')
-        return redirect('task_detail', pk=pk)
+        return redirect('tradie_profile', pk=task.assigned_tradie.pk)
     return render(request, 'marketplace/rate_tradie.html', {
         'task':     task,
         'form':     form,
@@ -610,6 +613,7 @@ def tradie_profile(request, pk):
         value_for_money           = Avg('value_for_money'),
         service_quality_workmanship = Avg('service_quality_workmanship'),
         communication_after_service  = Avg('communication_after_service'),
+        timeline_schedule_delivery   = Avg('timeline_schedule_delivery'),
     )
 
     criteria_data = []
