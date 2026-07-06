@@ -1,0 +1,13 @@
+{% extends "marketplace/base.html" %}
+{% block title %}Page Not Found – Coconut Wireless{% endblock %}
+{% block meta_description %}The page you requested could not be found on Coconut Wireless.{% endblock %}
+
+{% block content %}
+<main class="container" style="padding:56px 20px 90px;max-width:760px;">
+  <div class="card" style="text-align:center;">
+    <h1 class="mt-0">404</h1>
+    <p class="text-muted">Sorry, we couldn't find that page.</p>
+    <a class="btn btn-primary" href="{% url 'home' %}">Go back home</a>
+  </div>
+</main>
+{% endblock %}

@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="{% block meta_description %}Coconut Wireless helps Fiji clients find trusted local tradies for jobs, quotes, and bookings.{% endblock %}">
 <title>{% block title %}Coconut Wireless{% endblock %}</title>
+<link rel="icon" href="{% block favicon_href %}/favicon.ico{% endblock %}">
 <style>
 :root{--blue:#006994;--blue-dark:#004f70;--blue-light:#e6f4f9;--white:#fff;--text:#1a2e3b;--muted:#5a7080;--green:#27ae60;--orange:#e67e22;}
 *{box-sizing:border-box;}
@@ -108,7 +110,7 @@ footer a{color:#8ba4b3;text-decoration:none;}
 {% block content %}{% endblock %}
 
 <footer>
-  <p>&copy; 2026 Coconut Wireless &nbsp;|&nbsp; <a href="#">Privacy</a> &nbsp;|&nbsp; <a href="#">Terms</a> &nbsp;|&nbsp; <a href="#">Contact</a></p>
+  <p>&copy; 2026 Coconut Wireless &nbsp;|&nbsp; <a href="{% url 'privacy' %}">Privacy</a> &nbsp;|&nbsp; <a href="{% url 'terms' %}">Terms</a> &nbsp;|&nbsp; <a href="#">Contact</a></p>
 </footer>
 
 {% block scripts %}{% endblock %}
