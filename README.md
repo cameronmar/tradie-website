@@ -49,6 +49,7 @@ Recommended security env vars (defaults are production-safe):
 - `SECURE_HSTS_PRELOAD=False`
 
 If `DEBUG=False`, startup fails fast when `SECRET_KEY` or `ALLOWED_HOSTS` are missing.
+`SECURE_SSL_REDIRECT=True` requires HTTPS to be correctly configured at the platform/load balancer.
 
 ## Deploy on Railway
 

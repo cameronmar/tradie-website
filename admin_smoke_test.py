@@ -1,5 +1,7 @@
 """
 Lightweight smoke test for launch readiness.
+Validates that home, health check, and admin login pages respond with HTTP 200.
+This does not authenticate users or validate deeper application workflows.
 
 Usage:
     python admin_smoke_test.py
@@ -23,16 +25,16 @@ def main():
         ('/admin/login/', 'Admin login page'),
     ]
 
-    failed = False
+    has_failures = False
     print('--- SMOKE TEST REPORT ---')
     for path, label in checks:
         response = client.get(path)
         ok = response.status_code == 200
         print(f'{label}: GET {path} -> {response.status_code}')
-        failed |= not ok
+        has_failures |= not ok
 
     print('--- END REPORT ---')
-    if failed:
+    if has_failures:
         print('Smoke test failed: one or more checks did not return HTTP 200.')
         return 1
     return 0
