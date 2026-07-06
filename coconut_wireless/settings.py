@@ -125,11 +125,7 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # ── Proxy/HTTPS security defaults ──────────────────────────────────────────────
-SECURE_PROXY_SSL_HEADER = (
-    ('HTTP_X_FORWARDED_PROTO', 'https')
-    if _get_bool_env('USE_X_FORWARDED_PROTO', False)
-    else None
-)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https') if _get_bool_env('USE_X_FORWARDED_PROTO', False) else None
 SESSION_COOKIE_SECURE = _get_bool_env('SESSION_COOKIE_SECURE', not DEBUG)
 CSRF_COOKIE_SECURE = _get_bool_env('CSRF_COOKIE_SECURE', not DEBUG)
 SECURE_SSL_REDIRECT = _get_bool_env('SECURE_SSL_REDIRECT', not DEBUG)

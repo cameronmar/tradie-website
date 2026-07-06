@@ -31,7 +31,7 @@ def main():
         response = client.get(path)
         ok = response.status_code == 200
         print(f'{label}: GET {path} -> {response.status_code}')
-        has_failures |= not ok
+        has_failures = has_failures or not ok
 
     print('--- END REPORT ---')
     if has_failures:
