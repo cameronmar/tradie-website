@@ -11,6 +11,7 @@ from decimal import Decimal
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import Avg, Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -97,6 +98,14 @@ def how_it_works(request):
 
 def terms(request):
     return render(request, 'marketplace/terms.html')
+
+
+def privacy(request):
+    return render(request, 'marketplace/privacy.html')
+
+
+def healthz(request):
+    return JsonResponse({'status': 'ok'})
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────

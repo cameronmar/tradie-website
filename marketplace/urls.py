@@ -5,6 +5,7 @@ urlpatterns = [
     # Static
     path('',                       views.home,          name='home'),
     path('how-it-works/',          views.how_it_works,  name='how_it_works'),
+    path('privacy/',               views.privacy,       name='privacy'),
     path('terms/',                 views.terms,         name='terms'),
     # Auth
     path('register/',              views.register_client,  name='register_client'),

@@ -1,173 +1,90 @@
 # Coconut Wireless
 
-Fiji-based marketplace connecting Clients with Providers / Local Pros.  
-Built with Django — an Airtasker-style platform for the Fijian market.
-
----
+Fiji-based marketplace connecting clients with local tradies. Built with Django.
 
 ## Quick Start (Local Development)
 
 ```bash
-cd backend
-python -m venv venv
-
-# Windows
-venv\Scripts\activate
-
-# macOS / Linux
-source venv/bin/activate
-
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-### Set up environment variables
-
-```bash
 cp .env.example .env
-# Edit .env and set SECRET_KEY (see note below)
-```
-
-Generate a secure secret key:
-
-```bash
-python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-```
-
-### Run migrations
-
-```bash
 python manage.py migrate
-```
-
-### Create a superuser
-
-```bash
-python manage.py createsuperuser
-```
-
-### Start the server
-
-```bash
 python manage.py runserver
 ```
 
-Visit: http://127.0.0.1:8000/  
+App: http://127.0.0.1:8000/  
 Admin: http://127.0.0.1:8000/admin/
 
----
-
 ## Smoke Test
-
-Runs automated checks on admin pages, model counts, and fee calculations:
 
 ```bash
 python admin_smoke_test.py
 ```
 
----
+Checks:
+- home page returns 200
+- `/healthz/` returns 200
+- admin login page is reachable
 
-## Project Structure
+## Production Environment Variables
 
-```
-backend/
-├── manage.py
-├── requirements.txt
-├── .env.example          ← copy to .env and fill in values
-├── .gitignore
-├── coconut_wireless/     ← Django project settings
-│   ├── settings.py
-│   ├── urls.py
-│   ├── wsgi.py
-│   └── asgi.py
-└── marketplace/          ← main app
-    ├── models.py
-    ├── views.py
-    ├── urls.py
-    ├── forms.py
-    ├── admin.py
-    ├── utils.py
-    ├── constants.py
-    ├── managers.py
-    ├── migrations/
-    ├── templates/
-    └── templatetags/
-```
+Required for production:
 
----
+- `DJANGO_ENV=production`
+- `DEBUG=False`
+- `SECRET_KEY=<strong-random-value>`
+- `ALLOWED_HOSTS=<comma-separated-hosts>`
+- `CSRF_TRUSTED_ORIGINS=<comma-separated-https-origins>`
+- `DATABASE_URL=<postgres-connection-url>`
 
-## Deployment Notes
+Recommended security env vars (defaults are production-safe):
 
-### Environment variables
+- `USE_X_FORWARDED_PROTO=True`
+- `SESSION_COOKIE_SECURE=True`
+- `CSRF_COOKIE_SECURE=True`
+- `SECURE_SSL_REDIRECT=True`
+- `SECURE_HSTS_SECONDS=3600`
+- `SECURE_HSTS_INCLUDE_SUBDOMAINS=False` (set `True` only after confirming all subdomains are HTTPS-ready)
+- `SECURE_HSTS_PRELOAD=False`
 
-Set these in your hosting environment (never commit `.env` to Git):
+If `DEBUG=False`, startup fails fast when `SECRET_KEY` or `ALLOWED_HOSTS` are missing.
+`SECURE_SSL_REDIRECT=True` requires HTTPS to be correctly configured at the platform/load balancer.
 
-| Variable | Description |
-|---|---|
-| `SECRET_KEY` | Django secret key — generate a fresh one |
-| `DEBUG` | Set to `False` in production |
-| `ALLOWED_HOSTS` | Comma-separated list, e.g. `coconutwireless.fj,www.coconutwireless.fj` |
-| `EMAIL_BACKEND` | Use SMTP backend in production |
-| `EMAIL_HOST` | SMTP host (e.g. `smtp.sendgrid.net`) |
-| `EMAIL_HOST_USER` | SMTP username |
-| `EMAIL_HOST_PASSWORD` | SMTP password / API key |
+## Deploy on Railway
 
-### Collect static files (production)
+1. Create a new Railway project from this repo.
+2. Set all required env vars above.
+3. Use these commands:
+   - **Build command:** `pip install -r requirements.txt`
+   - **Start command:** `gunicorn coconut_wireless.wsgi --log-file -`
+4. Run after deploy (or as release command if configured):
+   ```bash
+   python manage.py migrate --noinput
+   python manage.py collectstatic --noinput
+   ```
+5. Configure domain + HTTPS in Railway.
 
-```bash
-python manage.py collectstatic --noinput
-```
+## Deploy on Render
 
-Static files are written to `backend/staticfiles/`. Serve this directory via your web server (nginx, Caddy, etc.) or a CDN.
+1. Create a **Web Service** from this repo.
+2. Set all required env vars above.
+3. Configure:
+   - **Build command:** `pip install -r requirements.txt && python manage.py collectstatic --noinput`
+   - **Start command:** `gunicorn coconut_wireless.wsgi --log-file -`
+4. Run migrations via Render Shell or deploy hook:
+   ```bash
+   python manage.py migrate --noinput
+   ```
+5. Configure custom domain + HTTPS in Render.
 
-### Run migrations on deploy
+## Launch in 24h Checklist
 
-```bash
-python manage.py migrate
-```
-
-### Database
-
-- **Local / testing:** SQLite (`db.sqlite3`) — already configured, no setup needed.
-- **Production:** Use PostgreSQL. Install `psycopg2-binary` and `dj-database-url`, then set `DATABASE_URL` in your environment.
-
-```bash
-pip install dj-database-url psycopg2-binary
-```
-
-Add to `settings.py`:
-
-```python
-import dj_database_url
-DATABASES['default'] = dj_database_url.config(conn_max_age=600)
-```
-
-### Media files warning
-
-User-uploaded files (provider documents, sponsor banners) are stored in `media/`.  
-This directory is **excluded from Git**. In production, store media on an object storage service such as AWS S3, Backblaze B2, or DigitalOcean Spaces.
-
-### Create superuser on first deploy
-
-```bash
-python manage.py createsuperuser
-```
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Backend | Django 4.x |
-| Database | SQLite (dev) / PostgreSQL (prod) |
-| Auth | Custom AbstractUser (email login) |
-| File uploads | Django FileField + Pillow |
-| Admin | Django Admin (customised) |
-| Frontend | Plain HTML / CSS / JS (no framework) |
-| Timezone | Pacific/Fiji |
-
----
-
-## Licence
-
-Proprietary — Coconut Wireless · Fiji · 2026
+- [ ] Set production env vars (`SECRET_KEY`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `DATABASE_URL`)
+- [ ] Point DNS to Railway/Render service and enable HTTPS
+- [ ] Run migrations and collectstatic on production
+- [ ] Verify `/`, `/healthz/`, and `/admin/login/` return 200
+- [ ] Verify custom error pages (404/500) render with `DEBUG=False`
+- [ ] Replace legal placeholder copy with lawyer-reviewed final text
+- [ ] Create first production superuser
+- [ ] Confirm email provider credentials (if using SMTP)
