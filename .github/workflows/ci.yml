@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  django:
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_ENV: production
+      DEBUG: "False"
+      SECRET_KEY: ci-secret-key
+      ALLOWED_HOSTS: localhost,127.0.0.1,testserver
+      CSRF_TRUSTED_ORIGINS: https://localhost,https://example.com
+      DATABASE_URL: sqlite:///db.sqlite3
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Django system checks
+        run: python manage.py check --deploy
+
+      - name: Run migrations
+        run: python manage.py migrate --noinput
+
+      - name: Collect static files
+        run: python manage.py collectstatic --noinput
+
+      - name: Run test suite
+        run: python manage.py test
+
+      - name: Run smoke test
+        run: python admin_smoke_test.py

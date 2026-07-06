@@ -21,6 +21,10 @@ services:
         fromDatabase:
           name: coconut-wireless-db
           property: connectionString
+      - key: SENTRY_DSN
+        sync: false
+      - key: SENTRY_TRACES_SAMPLE_RATE
+        value: "0"
 
 databases:
   - name: coconut-wireless-db

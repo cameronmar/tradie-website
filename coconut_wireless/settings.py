@@ -23,6 +23,8 @@ def _get_list_env(name, default=''):
 DJANGO_ENV = os.environ.get('DJANGO_ENV', 'development').strip().lower()
 IS_PRODUCTION = DJANGO_ENV == 'production'
 DEBUG = _get_bool_env('DEBUG', default=not IS_PRODUCTION)
+if IS_PRODUCTION and DEBUG:
+    raise ImproperlyConfigured('DEBUG must be False when DJANGO_ENV is production.')
 
 SECRET_KEY = os.environ.get('SECRET_KEY')
 if not SECRET_KEY:
@@ -39,6 +41,8 @@ if not DEBUG and not ALLOWED_HOSTS:
     raise ImproperlyConfigured('ALLOWED_HOSTS must be set when DEBUG is False.')
 
 CSRF_TRUSTED_ORIGINS = _get_list_env('CSRF_TRUSTED_ORIGINS', '')
+if IS_PRODUCTION and not CSRF_TRUSTED_ORIGINS:
+    raise ImproperlyConfigured('CSRF_TRUSTED_ORIGINS must be set when DJANGO_ENV is production.')
 
 # ── Application definition ─────────────────────────────────────────────────────
 INSTALLED_APPS = [
@@ -152,3 +156,15 @@ EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+
+# ── Observability (optional) ──────────────────────────────────────────────────
+SENTRY_DSN = os.environ.get('SENTRY_DSN', '').strip()
+if SENTRY_DSN:
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        traces_sample_rate=float(os.environ.get('SENTRY_TRACES_SAMPLE_RATE', '0')),
+        send_default_pii=False,
+        environment=DJANGO_ENV,
+    )

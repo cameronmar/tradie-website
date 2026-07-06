@@ -16,6 +16,15 @@ python manage.py runserver
 App: http://127.0.0.1:8000/  
 Admin: http://127.0.0.1:8000/admin/
 
+## CI Quality Gate Expectations
+
+GitHub Actions workflow `.github/workflows/ci.yml` runs on every push and pull request and must pass before merge:
+
+1. `python manage.py check --deploy`
+2. `python manage.py migrate --noinput`
+3. `python manage.py test`
+4. `python admin_smoke_test.py`
+
 ## Smoke Test
 
 ```bash
@@ -29,36 +38,68 @@ Checks:
 
 ## Production Environment Variables
 
-Required for production:
+| Variable | Required | Purpose / Notes |
+|---|---|---|
+| `DJANGO_ENV` | Yes | Set to `production` in deployed environments. |
+| `DEBUG` | Yes | Must be `False` in production. Startup fails if `DJANGO_ENV=production` and `DEBUG=True`. |
+| `SECRET_KEY` | Yes | Strong random value. Startup fails if missing in production. |
+| `ALLOWED_HOSTS` | Yes | Comma-separated production hostnames. Startup fails if missing in production. |
+| `CSRF_TRUSTED_ORIGINS` | Yes | Comma-separated `https://...` origins for production forms/admin. Startup fails if missing in production. |
+| `DATABASE_URL` | Yes (production) | Postgres connection URL in production. SQLite is acceptable for local dev/CI. |
+| `USE_X_FORWARDED_PROTO` | Optional | Defaults to `True` in production for hosted proxy TLS. |
+| `SESSION_COOKIE_SECURE` | Optional | Defaults to `True` in production. |
+| `CSRF_COOKIE_SECURE` | Optional | Defaults to `True` in production. |
+| `SECURE_SSL_REDIRECT` | Optional | Defaults to `True` in production. |
+| `SECURE_HSTS_SECONDS` | Optional | Defaults to `3600` in production. |
+| `SECURE_HSTS_INCLUDE_SUBDOMAINS` | Optional | Defaults to `False`; set `True` only when all subdomains are HTTPS-ready. |
+| `SECURE_HSTS_PRELOAD` | Optional | Defaults to `False`; enable only when preload requirements are met. |
+| `SENTRY_DSN` | Optional | Enables Sentry error reporting only when provided. |
+| `SENTRY_TRACES_SAMPLE_RATE` | Optional | Defaults to `0`. Example: `0.1` for 10% tracing. |
 
-- `DJANGO_ENV=production`
-- `DEBUG=False`
-- `SECRET_KEY=<strong-random-value>`
-- `ALLOWED_HOSTS=<comma-separated-hosts>`
-- `CSRF_TRUSTED_ORIGINS=<comma-separated-https-origins>`
-- `DATABASE_URL=<postgres-connection-url>`
+Local defaults remain documented in `.env.example`.
 
-Recommended security env vars (defaults are production-safe):
+## Deployment Sequence
 
-- `USE_X_FORWARDED_PROTO=True`
-- `SESSION_COOKIE_SECURE=True`
-- `CSRF_COOKIE_SECURE=True`
-- `SECURE_SSL_REDIRECT=True`
-- `SECURE_HSTS_SECONDS=3600`
-- `SECURE_HSTS_INCLUDE_SUBDOMAINS=False` (set `True` only after confirming all subdomains are HTTPS-ready)
-- `SECURE_HSTS_PRELOAD=False`
+1. Ensure CI passes on the release commit.
+2. Set production env vars in platform (Render/Railway).
+3. Deploy application.
+4. Run:
+   ```bash
+   python manage.py migrate --noinput
+   python manage.py collectstatic --noinput
+   ```
+5. Validate post-deploy (below).
 
-If `DEBUG=False`, startup fails fast when `SECRET_KEY` or `ALLOWED_HOSTS` are missing.
-`SECURE_SSL_REDIRECT=True` requires HTTPS to be correctly configured at the platform/load balancer.
+## Post-Deploy Validation
+
+Run these checks immediately after deploy:
+
+```bash
+python manage.py check --deploy
+python admin_smoke_test.py
+```
+
+Then verify:
+- `GET /` returns 200
+- `GET /healthz/` returns 200
+- `GET /admin/login/` returns 200
+- application logs show no startup configuration errors
+
+## Rollback Procedure
+
+1. Re-deploy the last known-good release/version.
+2. If schema changes were included, run rollback migration only if it is explicitly safe.
+3. Re-run post-deploy validation checks.
+4. If incident persists, follow `docs/runbook.md`.
 
 ## Deploy on Railway
 
 1. Create a new Railway project from this repo.
 2. Set all required env vars above.
-3. Use these commands:
+3. Use:
    - **Build command:** `pip install -r requirements.txt`
    - **Start command:** `gunicorn coconut_wireless.wsgi --log-file -`
-4. Run after deploy (or as release command if configured):
+4. Run after deploy:
    ```bash
    python manage.py migrate --noinput
    python manage.py collectstatic --noinput
@@ -72,19 +113,8 @@ If `DEBUG=False`, startup fails fast when `SECRET_KEY` or `ALLOWED_HOSTS` are mi
 3. Configure:
    - **Build command:** `pip install -r requirements.txt && python manage.py collectstatic --noinput`
    - **Start command:** `gunicorn coconut_wireless.wsgi --log-file -`
-4. Run migrations via Render Shell or deploy hook:
+4. Run migrations:
    ```bash
    python manage.py migrate --noinput
    ```
 5. Configure custom domain + HTTPS in Render.
-
-## Launch in 24h Checklist
-
-- [ ] Set production env vars (`SECRET_KEY`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `DATABASE_URL`)
-- [ ] Point DNS to Railway/Render service and enable HTTPS
-- [ ] Run migrations and collectstatic on production
-- [ ] Verify `/`, `/healthz/`, and `/admin/login/` return 200
-- [ ] Verify custom error pages (404/500) render with `DEBUG=False`
-- [ ] Replace legal placeholder copy with lawyer-reviewed final text
-- [ ] Create first production superuser
-- [ ] Confirm email provider credentials (if using SMTP)
