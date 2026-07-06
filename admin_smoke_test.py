@@ -29,7 +29,7 @@ def main():
         response = client.get(path)
         ok = response.status_code == 200
         print(f'{label}: GET {path} -> {response.status_code}')
-        failed = failed or not ok
+        failed |= not ok
 
     print('--- END REPORT ---')
     if failed:
