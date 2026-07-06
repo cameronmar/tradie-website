@@ -114,7 +114,7 @@ USE_TZ = True
 # ── Static & media files ───────────────────────────────────────────────────────
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'   # target for collectstatic in production
-STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
+STATICFILES_DIRS = [BASE_DIR / 'static']
 STORAGES = {
     'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
     'staticfiles': {
@@ -125,9 +125,10 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # ── Proxy/HTTPS security defaults ──────────────────────────────────────────────
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https') if _get_bool_env('USE_X_FORWARDED_PROTO', False) else None
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https') if _get_bool_env('USE_X_FORWARDED_PROTO', IS_PRODUCTION) else None
 SESSION_COOKIE_SECURE = _get_bool_env('SESSION_COOKIE_SECURE', not DEBUG)
 CSRF_COOKIE_SECURE = _get_bool_env('CSRF_COOKIE_SECURE', not DEBUG)
+# When enabling SECURE_SSL_REDIRECT behind Railway/Render, keep USE_X_FORWARDED_PROTO=True.
 SECURE_SSL_REDIRECT = _get_bool_env('SECURE_SSL_REDIRECT', not DEBUG)
 SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '3600' if not DEBUG else '0'))
 SECURE_HSTS_INCLUDE_SUBDOMAINS = _get_bool_env('SECURE_HSTS_INCLUDE_SUBDOMAINS', False)
