@@ -29,7 +29,7 @@ class CriticalPathViewsTests(TestCase):
         self.assertEqual(response.json(), {'status': 'ok'})
 
     def test_healthz_returns_503_when_db_unavailable(self):
-        with mock.patch('marketplace.views.connection.cursor', side_effect=DatabaseError('db down')):
+        with mock.patch('django.db.connection.cursor', side_effect=DatabaseError('Database connection unavailable')):
             response = self.client.get('/healthz/', secure=True)
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json(), {'status': 'error'})

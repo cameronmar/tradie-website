@@ -161,10 +161,16 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 SENTRY_DSN = os.environ.get('SENTRY_DSN', '').strip()
 if SENTRY_DSN:
     import sentry_sdk
+    try:
+        traces_sample_rate = float(os.environ.get('SENTRY_TRACES_SAMPLE_RATE', '0'))
+    except ValueError as exc:
+        raise ImproperlyConfigured('SENTRY_TRACES_SAMPLE_RATE must be a valid number.') from exc
+    if not 0 <= traces_sample_rate <= 1:
+        raise ImproperlyConfigured('SENTRY_TRACES_SAMPLE_RATE must be between 0 and 1.')
 
     sentry_sdk.init(
         dsn=SENTRY_DSN,
-        traces_sample_rate=float(os.environ.get('SENTRY_TRACES_SAMPLE_RATE', '0')),
+        traces_sample_rate=traces_sample_rate,
         send_default_pii=False,
         environment=DJANGO_ENV,
     )

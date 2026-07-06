@@ -23,6 +23,7 @@ services:
           property: connectionString
       - key: SENTRY_DSN
         sync: false
+      # Render env var values are provided as strings.
       - key: SENTRY_TRACES_SAMPLE_RATE
         value: "0"
 
