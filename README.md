@@ -45,7 +45,7 @@ Recommended security env vars (defaults are production-safe):
 - `CSRF_COOKIE_SECURE=True`
 - `SECURE_SSL_REDIRECT=True`
 - `SECURE_HSTS_SECONDS=3600`
-- `SECURE_HSTS_INCLUDE_SUBDOMAINS=True`
+- `SECURE_HSTS_INCLUDE_SUBDOMAINS=False` (set `True` only after confirming all subdomains are HTTPS-ready)
 - `SECURE_HSTS_PRELOAD=False`
 
 If `DEBUG=False`, startup fails fast when `SECRET_KEY` or `ALLOWED_HOSTS` are missing.
