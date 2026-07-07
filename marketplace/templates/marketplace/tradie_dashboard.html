@@ -72,6 +72,13 @@ footer{display:none;}
       {% endwith %}
     </p>
 
+    {% if not tradie_is_approved %}
+    <div class="card" style="margin-bottom:18px;border:1px solid #ffe2a8;background:#fffaf0;">
+      <strong>Verification in progress.</strong>
+      Your provider account is not approved yet, so quoting and appointment requests are temporarily disabled.
+    </div>
+    {% endif %}
+
     <div class="stats-row">
       <div class="stat-card"><div class="stat-num">{{ pending_quotes|length }}</div><div class="stat-lbl">Quotes pending</div></div>
       <div class="stat-card"><div class="stat-num">{{ accepted_quotes|length }}</div><div class="stat-lbl">Active jobs</div></div>

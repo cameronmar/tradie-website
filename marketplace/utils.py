@@ -28,10 +28,10 @@ def calculate_platform_fee(job_value, settings=None):
     if not settings:
         return Decimal('0'), Decimal('0'), Decimal('0')
     
-    large_threshold = settings.large_job_threshold
-    success_rate = settings.success_fee_rate
-    large_rate = settings.large_job_fee_rate
-    fee_cap = settings.success_fee_cap
+    large_threshold = Decimal(str(settings.large_job_threshold))
+    success_rate = Decimal(str(settings.success_fee_rate))
+    large_rate = Decimal(str(settings.large_job_fee_rate))
+    fee_cap = Decimal(str(settings.success_fee_cap))
 
     if job_value > large_threshold:
         fee_rate = large_rate
@@ -63,10 +63,10 @@ def calculate_quote_with_platform_fee(base_price, settings=None):
     if not settings:
         return None
     
-    success_rate = settings.success_fee_rate
-    fee_cap = settings.success_fee_cap
-    large_threshold = settings.large_job_threshold
-    large_rate = settings.large_job_fee_rate
+    success_rate = Decimal(str(settings.success_fee_rate))
+    fee_cap = Decimal(str(settings.success_fee_cap))
+    large_threshold = Decimal(str(settings.large_job_threshold))
+    large_rate = Decimal(str(settings.large_job_fee_rate))
 
     if success_rate >= 100 or large_rate >= 100:
         return None
@@ -110,10 +110,10 @@ def calculate_quote_from_take_home(minimum_take_home, settings=None):
     if not settings or minimum_take_home <= 0:
         return None
 
-    success_rate = settings.success_fee_rate
-    fee_cap = settings.success_fee_cap
-    large_threshold = settings.large_job_threshold
-    large_rate = settings.large_job_fee_rate
+    success_rate = Decimal(str(settings.success_fee_rate))
+    fee_cap = Decimal(str(settings.success_fee_cap))
+    large_threshold = Decimal(str(settings.large_job_threshold))
+    large_rate = Decimal(str(settings.large_job_fee_rate))
 
     if success_rate >= 100 or large_rate >= 100:
         return None
@@ -385,7 +385,8 @@ def send_invoice_notifications(invoice):
         send_mail(
             subject, body,
             getattr(django_settings, 'DEFAULT_FROM_EMAIL', 'noreply@coconutwireless.fj'),
-            [tradie.email], fail_silently=True,
+            [tradie.email],
+            fail_silently=not getattr(django_settings, 'IS_PRODUCTION', False),
         )
     InvoiceNotification.objects.create(
         invoice=invoice, recipient=tradie, channel=InvoiceNotification.CHANNEL_EMAIL,

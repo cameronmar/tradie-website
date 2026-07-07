@@ -2,11 +2,17 @@ import json
 import os
 import subprocess
 import sys
+from decimal import Decimal
 from pathlib import Path
 from unittest import mock
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError
 from django.test import TestCase, override_settings
+from django.urls import reverse
+
+from .models import Invoice, InvoiceLine, Quote, Task, TradieProfile, User
+from .utils import send_invoice_notifications
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -40,6 +46,24 @@ class CriticalPathViewsTests(TestCase):
 
 
 class ProductionSettingsTests(TestCase):
+    @staticmethod
+    def _base_production_env():
+        return {
+            'DJANGO_ENV': 'production',
+            'DEBUG': 'False',
+            'SECRET_KEY': 'x' * 64,
+            'ALLOWED_HOSTS': 'example.com',
+            'CSRF_TRUSTED_ORIGINS': 'https://example.com',
+            'OBJECT_STORAGE_BACKEND': 's3',
+            'AWS_STORAGE_BUCKET_NAME': 'bucket-name',
+            'AWS_ACCESS_KEY_ID': 'access-key',
+            'AWS_SECRET_ACCESS_KEY': 'secret-key',
+            'EMAIL_BACKEND': 'django.core.mail.backends.smtp.EmailBackend',
+            'EMAIL_HOST': 'smtp.example.com',
+            'EMAIL_HOST_USER': 'apikey',
+            'EMAIL_HOST_PASSWORD': 'secret',
+        }
+
     @staticmethod
     def _run_settings_import(extra_env):
         env = os.environ.copy()
@@ -106,15 +130,7 @@ class ProductionSettingsTests(TestCase):
 
     def test_production_secure_defaults(self):
         env = os.environ.copy()
-        env.update(
-            {
-                'DJANGO_ENV': 'production',
-                'DEBUG': 'False',
-                'SECRET_KEY': 'x',
-                'ALLOWED_HOSTS': 'example.com',
-                'CSRF_TRUSTED_ORIGINS': 'https://example.com',
-            }
-        )
+        env.update(self._base_production_env())
         result = subprocess.run(
             [
                 sys.executable,
@@ -142,3 +158,215 @@ class ProductionSettingsTests(TestCase):
         self.assertTrue(payload['CSRF_COOKIE_SECURE'])
         self.assertTrue(payload['SECURE_SSL_REDIRECT'])
         self.assertGreater(payload['SECURE_HSTS_SECONDS'], 0)
+
+    def test_production_requires_object_storage_backend(self):
+        env = self._base_production_env()
+        env['OBJECT_STORAGE_BACKEND'] = 'filesystem'
+        result = self._run_settings_import(env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('OBJECT_STORAGE_BACKEND must be set to "s3"', result.stderr)
+
+    def test_production_requires_smtp_configuration(self):
+        env = self._base_production_env()
+        env['EMAIL_HOST'] = ''
+        result = self._run_settings_import(env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Missing required SMTP environment variables in production', result.stderr)
+
+
+@override_settings(
+    STORAGES={
+        'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+        'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+    }
+)
+class ClosedBetaAndApprovalFlowTests(TestCase):
+    def setUp(self):
+        self.client_user = User.objects.create_user(
+            email='client@example.com',
+            password='pass12345',
+            first_name='Client',
+            last_name='User',
+            role=User.ROLE_CLIENT,
+            town='Suva',
+        )
+        self.tradie_user = User.objects.create_user(
+            email='tradie@example.com',
+            password='pass12345',
+            first_name='Tradie',
+            last_name='User',
+            role=User.ROLE_TRADIE,
+            town='Suva',
+        )
+        self.tradie_profile = TradieProfile.objects.create(
+            user=self.tradie_user,
+            trades=['cleaning'],
+            service_towns=['Suva'],
+            verification_status=TradieProfile.VERIFICATION_PENDING,
+        )
+        self.task = Task.objects.create(
+            client=self.client_user,
+            title='Fix sink',
+            category='plumbing',
+            description='Kitchen sink leaking',
+            budget=Decimal('150.00'),
+            town='Suva',
+        )
+
+    @override_settings(
+        BETA_GATE_CLIENT_SIGNUPS=True,
+        BETA_ALLOWED_EMAILS={'invitee@example.com'},
+        BETA_ALLOWED_DOMAINS=set(),
+    )
+    def test_client_registration_requires_invited_email(self):
+        response = self.client.post(
+            reverse('register_client'),
+            {
+                'first_name': 'New',
+                'last_name': 'Client',
+                'email': 'blocked@example.com',
+                'mobile': '+679 123 4567',
+                'town': 'Suva',
+                'password': 'pass12345',
+                'password_confirm': 'pass12345',
+                'accepted_terms': 'on',
+            },
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'invite-only for closed beta')
+
+    @override_settings(
+        BETA_GATE_TRADIE_SIGNUPS=True,
+        BETA_ALLOWED_EMAILS={'invited-tradie@example.com'},
+        BETA_ALLOWED_DOMAINS=set(),
+    )
+    def test_tradie_registration_with_documents_starts_pending(self):
+        response = self.client.post(
+            reverse('register_tradie'),
+            {
+                'first_name': 'Invited',
+                'last_name': 'Tradie',
+                'email': 'invited-tradie@example.com',
+                'mobile': '+679 111 2222',
+                'town': 'Suva',
+                'password': 'pass12345',
+                'password_confirm': 'pass12345',
+                'business_name': 'Invited Services',
+                'tin': 'P123',
+                'years_experience': '1-3 years',
+                'bio': 'Experienced tradie',
+                'trades': ['cleaning'],
+                'service_towns': ['Suva'],
+                'accepted_terms': 'on',
+                'accepted_platform_circumvention': 'on',
+                'accepted_invoicing_terms': 'on',
+                'tin_letter': SimpleUploadedFile('tin.pdf', b'pdf-content', content_type='application/pdf'),
+            },
+            secure=True,
+        )
+        self.assertEqual(response.status_code, 302)
+        user = User.objects.get(email='invited-tradie@example.com')
+        self.assertEqual(user.tradie_profile.verification_status, TradieProfile.VERIFICATION_PENDING)
+        self.assertFalse(user.tradie_profile.documents_verified)
+
+    def test_pending_tradie_cannot_submit_quote(self):
+        self.client.login(username=self.tradie_user.email, password='pass12345')
+        response = self.client.post(
+            reverse('submit_quote', args=[self.task.pk]),
+            {
+                'price': '120.00',
+                'message': 'Can complete this week',
+                'quote_includes': 'labour_only',
+            },
+            secure=True,
+        )
+        self.assertRedirects(response, reverse('tradie_dashboard'))
+        self.assertFalse(Quote.objects.filter(task=self.task, tradie=self.tradie_user).exists())
+
+    def test_approved_tradie_can_submit_quote(self):
+        self.tradie_profile.verification_status = TradieProfile.VERIFICATION_APPROVED
+        self.tradie_profile.save()
+        self.client.login(username=self.tradie_user.email, password='pass12345')
+        response = self.client.post(
+            reverse('submit_quote', args=[self.task.pk]),
+            {
+                'price': '120.00',
+                'message': 'Can complete this week',
+                'quote_includes': 'labour_only',
+            },
+            secure=True,
+        )
+        self.assertRedirects(response, reverse('task_detail', args=[self.task.pk]))
+        self.assertTrue(Quote.objects.filter(task=self.task, tradie=self.tradie_user).exists())
+
+    def test_core_task_quote_accept_complete_flow(self):
+        self.tradie_profile.verification_status = TradieProfile.VERIFICATION_APPROVED
+        self.tradie_profile.save()
+
+        self.client.login(username=self.client_user.email, password='pass12345')
+        post_response = self.client.post(
+            reverse('post_task'),
+            {
+                'title': 'Install light fitting',
+                'category': 'electrical',
+                'description': 'Replace kitchen pendant light',
+                'budget': '220.00',
+                'town': 'Suva',
+                'urgency': 'this_week',
+                'budget_type': 'fixed',
+            },
+            secure=True,
+        )
+        self.assertEqual(post_response.status_code, 302)
+        posted_task = Task.objects.get(title='Install light fitting')
+
+        self.client.logout()
+        self.client.login(username=self.tradie_user.email, password='pass12345')
+        quote_response = self.client.post(
+            reverse('submit_quote', args=[posted_task.pk]),
+            {
+                'price': '210.00',
+                'message': 'Available tomorrow',
+                'quote_includes': 'labour_only',
+            },
+            secure=True,
+        )
+        self.assertEqual(quote_response.status_code, 302)
+        quote = Quote.objects.get(task=posted_task, tradie=self.tradie_user)
+
+        self.client.logout()
+        self.client.login(username=self.client_user.email, password='pass12345')
+        accept_response = self.client.post(reverse('accept_quote', args=[posted_task.pk, quote.pk]), secure=True)
+        self.assertEqual(accept_response.status_code, 302)
+        posted_task.refresh_from_db()
+        self.assertEqual(posted_task.status, Task.STATUS_ASSIGNED)
+        self.assertEqual(posted_task.assigned_tradie, self.tradie_user)
+
+        complete_response = self.client.post(reverse('complete_task', args=[posted_task.pk]), secure=True)
+        self.assertEqual(complete_response.status_code, 302)
+        posted_task.refresh_from_db()
+        self.assertEqual(posted_task.status, Task.STATUS_COMPLETED)
+        self.assertTrue(posted_task.platform_fees.exists())
+
+    @mock.patch('django.core.mail.send_mail')
+    def test_invoice_notification_sends_email_and_updates_status(self, send_mail_mock):
+        invoice = Invoice.objects.create(
+            tradie=self.tradie_user,
+            invoice_number='INV-TEST-001',
+            total_amount=Decimal('50.00'),
+            due_date=self.task.created_at.date(),
+        )
+        InvoiceLine.objects.create(
+            invoice=invoice,
+            task=self.task,
+            description='Platform fee for test task',
+            amount=Decimal('50.00'),
+        )
+
+        send_invoice_notifications(invoice)
+
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status, Invoice.STATUS_SENT)
+        self.assertEqual(invoice.notifications.count(), 3)
+        send_mail_mock.assert_called_once()

@@ -1,4 +1,5 @@
 from django import forms
+from django.conf import settings
 from django.core.exceptions import ValidationError
 
 from .constants import TRADE_CHOICES, TOWN_CHOICES, EXPERIENCE_CHOICES
@@ -13,6 +14,20 @@ def _input(placeholder='', type_='text', **kwargs):
 
 def _select(**kwargs):
     return forms.Select(attrs={'class': 'form-input', **kwargs})
+
+
+def _validate_closed_beta_email(email, gate_enabled):
+    if not gate_enabled:
+        return
+
+    if email in settings.BETA_ALLOWED_EMAILS:
+        return
+
+    domain = email.rsplit('@', 1)[-1].lower()
+    if domain in settings.BETA_ALLOWED_DOMAINS:
+        return
+
+    raise ValidationError('Signups are currently invite-only for closed beta. Please request access from the team.')
 
 
 # ── Auth forms ────────────────────────────────────────────────────────────────
@@ -34,6 +49,7 @@ class ClientRegistrationForm(forms.Form):
         email = self.cleaned_data['email'].lower()
         if User.objects.filter(email=email).exists():
             raise ValidationError('An account with this email already exists.')
+        _validate_closed_beta_email(email, settings.BETA_GATE_CLIENT_SIGNUPS)
         return email
 
     def clean(self):
@@ -95,6 +111,7 @@ class TradieRegistrationForm(forms.Form):
         email = self.cleaned_data['email'].lower()
         if User.objects.filter(email=email).exists():
             raise ValidationError('An account with this email already exists.')
+        _validate_closed_beta_email(email, settings.BETA_GATE_TRADIE_SIGNUPS)
         return email
 
     def clean(self):
