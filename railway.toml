@@ -5,7 +5,7 @@ buildCommand = "pip install -r requirements.txt && python manage.py collectstati
 [deploy]
 startCommand = "gunicorn coconut_wireless.wsgi --bind 0.0.0.0:$PORT --log-file -"
 deploymentCommand = "python manage.py migrate --noinput"
-healthcheckPath = "/healthz/"
-healthcheckTimeout = 60
+healthCheckPath = "/healthz/"
+healthCheckTimeout = 60
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
