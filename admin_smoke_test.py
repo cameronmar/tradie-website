@@ -28,7 +28,7 @@ def main():
     has_failures = False
     print('--- SMOKE TEST REPORT ---')
     for path, label in checks:
-        response = client.get(path)
+        response = client.get(path, secure=True)
         ok = response.status_code == 200
         print(f'{label}: GET {path} -> {response.status_code}')
         has_failures = has_failures or not ok

@@ -10,6 +10,7 @@ from django.contrib.auth import authenticate, login, logout
 from decimal import Decimal
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.db import DatabaseError, connection
 from django.db.models import Avg, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -105,6 +106,12 @@ def privacy(request):
 
 
 def healthz(request):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT 1')
+            cursor.fetchone()
+    except DatabaseError:
+        return JsonResponse({'status': 'error'}, status=503)
     return JsonResponse({'status': 'ok'})
 
 
