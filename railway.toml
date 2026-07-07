@@ -1,0 +1,11 @@
+[build]
+builder = "nixpacks"
+buildCommand = "pip install -r requirements.txt && python manage.py collectstatic --noinput"
+
+[deploy]
+startCommand = "gunicorn coconut_wireless.wsgi --bind 0.0.0.0:$PORT --log-file -"
+deploymentCommand = "python manage.py migrate --noinput"
+healthcheckPath = "/healthz/"
+healthcheckTimeout = 60
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3

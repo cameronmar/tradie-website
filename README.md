@@ -96,15 +96,15 @@ Then verify:
 
 1. Create a new Railway project from this repo.
 2. Set all required env vars above.
-3. Use:
-   - **Build command:** `pip install -r requirements.txt`
-   - **Start command:** `gunicorn coconut_wireless.wsgi --log-file -`
-4. Run after deploy:
-   ```bash
-   python manage.py migrate --noinput
-   python manage.py collectstatic --noinput
-   ```
-5. Configure domain + HTTPS in Railway.
+3. Railway uses the committed `railway.toml` and `.python-version` files for deploy configuration.
+4. Add a Railway Postgres service and link `DATABASE_URL` from the plugin into the web service variables.
+5. Railway deploy behavior is:
+   - **Build command:** `pip install -r requirements.txt && python manage.py collectstatic --noinput`
+   - **Deploy command:** `python manage.py migrate --noinput`
+   - **Start command:** `gunicorn coconut_wireless.wsgi --bind 0.0.0.0:$PORT --log-file -`
+   - **Health check:** `/healthz/`
+6. Configure domain + HTTPS in Railway.
+7. Media uploads stored on local disk are ephemeral on Railway and will be lost on restart/redeploy unless you move media storage to an external object store.
 
 ## Deploy on Render
 
@@ -112,7 +112,7 @@ Then verify:
 2. Set all required env vars above.
 3. Configure:
    - **Build command:** `pip install -r requirements.txt && python manage.py collectstatic --noinput`
-   - **Start command:** `gunicorn coconut_wireless.wsgi --log-file -`
+   - **Start command:** `gunicorn coconut_wireless.wsgi --bind 0.0.0.0:$PORT --log-file -`
 4. Run migrations:
    ```bash
    python manage.py migrate --noinput
