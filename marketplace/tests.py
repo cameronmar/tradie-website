@@ -398,4 +398,10 @@ class ClosedBetaAndApprovalFlowTests(TestCase):
         self.assertEqual(invoice.notifications.count(), 3)
         channels = set(invoice.notifications.values_list('channel', flat=True))
         self.assertEqual(channels, {'in_platform', 'email', 'sms'})
+        self.assertTrue(invoice.notifications.filter(recipient=self.tradie_user, channel='in_platform').exists())
+        self.assertTrue(invoice.notifications.filter(recipient=self.tradie_user, channel='email').exists())
+        self.assertTrue(invoice.notifications.filter(recipient=self.tradie_user, channel='sms').exists())
+        for notification in invoice.notifications.all():
+            self.assertTrue(notification.body)
+            self.assertEqual(notification.recipient, self.tradie_user)
         send_mail_mock.assert_called_once()

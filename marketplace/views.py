@@ -76,7 +76,7 @@ def _require_approved_tradie(request):
     _require_role(request, User.ROLE_TRADIE)
     profile = _get_tradie_profile(request.user)
     if not profile:
-        flash.warning(request, 'Your provider profile is incomplete. Please contact support.')
+        flash.warning(request, 'Your provider profile could not be found. Please contact support.')
         return redirect('tradie_dashboard')
     if profile.verification_status == TradieProfile.VERIFICATION_PENDING:
         flash.warning(request, 'Your provider account is pending verification. You can browse, but quoting is disabled.')

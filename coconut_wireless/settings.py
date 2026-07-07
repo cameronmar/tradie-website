@@ -203,7 +203,10 @@ EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', '10'))
 
-if IS_PRODUCTION and EMAIL_BACKEND == 'django.core.mail.backends.smtp.EmailBackend':
+if IS_PRODUCTION and EMAIL_BACKEND != 'django.core.mail.backends.smtp.EmailBackend':
+    raise ImproperlyConfigured('EMAIL_BACKEND must be django.core.mail.backends.smtp.EmailBackend in production.')
+
+if IS_PRODUCTION:
     required_email_vars = ('EMAIL_HOST', 'EMAIL_HOST_USER', 'EMAIL_HOST_PASSWORD')
     missing_email_vars = [name for name in required_email_vars if not os.environ.get(name, '').strip()]
     if missing_email_vars:
