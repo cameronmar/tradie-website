@@ -247,7 +247,7 @@ def client_dashboard(request):
 def tradie_dashboard(request):
     _require_role(request, User.ROLE_TRADIE)
     profile = _get_tradie_profile(request.user)
-    tradie_is_approved = bool(profile and profile.is_approved())
+    tradie_is_approved = profile.is_approved() if profile else False
 
     nearby = Task.objects.none()
     if tradie_is_approved and profile.service_towns:
@@ -355,7 +355,7 @@ def task_detail(request, pk):
 
     user_quote        = None
     can_quote         = False
-    tradie_can_participate = False
+    tradie_is_approved = False
     can_accept        = False
     can_complete      = False
     can_rate_tradie   = False
@@ -366,8 +366,7 @@ def task_detail(request, pk):
     if request.user.is_authenticated:
         u = request.user
         tradie_profile = _get_tradie_profile(u) if u.role == User.ROLE_TRADIE else None
-        tradie_is_approved = bool(tradie_profile and tradie_profile.is_approved())
-        tradie_can_participate = tradie_is_approved
+        tradie_is_approved = tradie_profile.is_approved() if tradie_profile else False
         if u.role == User.ROLE_TRADIE and tradie_is_approved and task.status == Task.STATUS_OPEN:
             try:
                 user_quote = quotes.get(tradie=u)
@@ -381,11 +380,10 @@ def task_detail(request, pk):
                 can_complete = True
 
     appointments = task.quoting_appointments.select_related('provider', 'client', 'selected_slot').prefetch_related('slots').order_by('-created_at')
-    request_profile = _get_tradie_profile(request.user) if request.user.is_authenticated and request.user.role == User.ROLE_TRADIE else None
     can_book_appointment = (
         request.user.is_authenticated
         and request.user.role == User.ROLE_TRADIE
-        and bool(request_profile and request_profile.is_approved())
+        and tradie_is_approved
         and task.status == Task.STATUS_OPEN
     )
     user_has_appointment = request.user.is_authenticated and appointments.filter(provider=request.user).exists()
@@ -437,7 +435,7 @@ def task_detail(request, pk):
         'can_book_appointment': can_book_appointment,
         'user_has_appointment': user_has_appointment,
         'can_message_client': can_message_client,
-        'tradie_can_participate': tradie_can_participate,
+        'tradie_can_participate': tradie_is_approved,
         'sponsors':        Sponsor.get_active_for_placement('task_detail_sidebar'),
     })
 

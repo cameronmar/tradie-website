@@ -109,6 +109,7 @@ class TradieProfile(models.Model):
         return f'{self.user} – Tradie Profile'
 
     def save(self, *args, **kwargs):
+        """Keep legacy documents_verified in sync with verification_status."""
         self.documents_verified = self.verification_status == self.VERIFICATION_APPROVED
         super().save(*args, **kwargs)
 

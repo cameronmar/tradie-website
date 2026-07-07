@@ -173,6 +173,26 @@ class ProductionSettingsTests(TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('Missing required SMTP environment variables in production', result.stderr)
 
+    def test_s3_endpoint_builds_media_url(self):
+        env = os.environ.copy()
+        base = self._base_production_env()
+        base['AWS_S3_ENDPOINT_URL'] = 'https://r2.example.com'
+        env.update(base)
+        result = subprocess.run(
+            [
+                sys.executable,
+                '-c',
+                'import coconut_wireless.settings as s; print(s.MEDIA_URL)',
+            ],
+            cwd=PROJECT_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stderr)
+        self.assertEqual(result.stdout.strip(), 'https://r2.example.com/bucket-name/')
+
 
 @override_settings(
     STORAGES={

@@ -160,11 +160,14 @@ if OBJECT_STORAGE_BACKEND == 's3':
         )
 
     STORAGES['default'] = {'BACKEND': 'storages.backends.s3.S3Storage'}
-    MEDIA_URL = (
-        f'https://{AWS_S3_CUSTOM_DOMAIN}/'
-        if AWS_S3_CUSTOM_DOMAIN
-        else f'https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/'
-    )
+    if AWS_S3_CUSTOM_DOMAIN:
+        MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN.strip("/")}/'
+    elif AWS_S3_ENDPOINT_URL:
+        MEDIA_URL = f'{AWS_S3_ENDPOINT_URL.rstrip("/")}/{AWS_STORAGE_BUCKET_NAME}/'
+    elif AWS_S3_REGION_NAME:
+        MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com/'
+    else:
+        MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/'
 
 # ── Proxy/HTTPS security defaults ──────────────────────────────────────────────
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https') if _get_bool_env('USE_X_FORWARDED_PROTO', IS_PRODUCTION) else None
