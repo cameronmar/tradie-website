@@ -81,7 +81,7 @@ class ProductionSettingsTests(TestCase):
             {
                 'DJANGO_ENV': 'production',
                 'DEBUG': 'True',
-                'SECRET_KEY': 'x',
+                'SECRET_KEY': 'x' * 64,
                 'ALLOWED_HOSTS': 'example.com',
                 'CSRF_TRUSTED_ORIGINS': 'https://example.com',
             }
@@ -107,7 +107,7 @@ class ProductionSettingsTests(TestCase):
             {
                 'DJANGO_ENV': 'production',
                 'DEBUG': 'False',
-                'SECRET_KEY': 'x',
+                'SECRET_KEY': 'x' * 64,
                 'ALLOWED_HOSTS': '',
                 'CSRF_TRUSTED_ORIGINS': 'https://example.com',
             }
@@ -120,13 +120,20 @@ class ProductionSettingsTests(TestCase):
             {
                 'DJANGO_ENV': 'production',
                 'DEBUG': 'False',
-                'SECRET_KEY': 'x',
+                'SECRET_KEY': 'x' * 64,
                 'ALLOWED_HOSTS': 'example.com',
                 'CSRF_TRUSTED_ORIGINS': '',
             }
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('CSRF_TRUSTED_ORIGINS must be set', result.stderr)
+
+    def test_production_rejects_weak_secret_key(self):
+        env = self._base_production_env()
+        env['SECRET_KEY'] = 'weak-key'
+        result = self._run_settings_import(env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('SECRET_KEY must be at least 50 characters', result.stderr)
 
     def test_production_secure_defaults(self):
         env = os.environ.copy()
@@ -389,4 +396,6 @@ class ClosedBetaAndApprovalFlowTests(TestCase):
         invoice.refresh_from_db()
         self.assertEqual(invoice.status, Invoice.STATUS_SENT)
         self.assertEqual(invoice.notifications.count(), 3)
+        channels = set(invoice.notifications.values_list('channel', flat=True))
+        self.assertEqual(channels, {'in_platform', 'email', 'sms'})
         send_mail_mock.assert_called_once()

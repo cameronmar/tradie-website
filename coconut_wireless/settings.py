@@ -32,6 +32,10 @@ if not SECRET_KEY:
         SECRET_KEY = 'django-insecure-dev-only-coconut-wireless'
     else:
         raise ImproperlyConfigured('SECRET_KEY environment variable is required when DEBUG is False.')
+if IS_PRODUCTION and (len(SECRET_KEY) < 50 or SECRET_KEY.startswith('django-insecure-')):
+    raise ImproperlyConfigured(
+        'SECRET_KEY must be at least 50 characters and not use the django-insecure prefix in production.'
+    )
 
 ALLOWED_HOSTS = _get_list_env(
     'ALLOWED_HOSTS',
