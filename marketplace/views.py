@@ -73,7 +73,11 @@ def _get_tradie_profile(user):
 
 
 def _require_approved_tradie(request):
-    _require_role(request, User.ROLE_TRADIE)
+    if not request.user.is_authenticated:
+        raise PermissionDenied
+    if request.user.role != User.ROLE_TRADIE:
+        flash.error(request, 'Only provider accounts can access this action.')
+        return redirect('dashboard')
     profile = _get_tradie_profile(request.user)
     if not profile:
         flash.warning(request, 'Your provider profile could not be found. Please contact support.')
