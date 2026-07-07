@@ -1,10 +1,10 @@
 services:
   - type: web
-    name: coconut-wireless
+    name: coconutwirelessfj
     env: python
     plan: starter
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
-    startCommand: gunicorn coconut_wireless.wsgi --log-file -
+    startCommand: gunicorn coconut_wireless.wsgi --bind 0.0.0.0:$PORT --log-file -
     healthCheckPath: /healthz/
     envVars:
       - key: DJANGO_ENV
@@ -19,7 +19,7 @@ services:
         sync: false
       - key: DATABASE_URL
         fromDatabase:
-          name: coconut-wireless-db
+          name: coconutwirelessfj-db
           property: connectionString
       - key: SENTRY_DSN
         sync: false
@@ -28,5 +28,5 @@ services:
         value: "0"
 
 databases:
-  - name: coconut-wireless-db
+  - name: coconutwirelessfj-db
     plan: starter
