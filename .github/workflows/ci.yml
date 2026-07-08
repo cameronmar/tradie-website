@@ -13,12 +13,7 @@ jobs:
     env:
       DJANGO_ENV: production
       DEBUG: "False"
-      # Hardcoded CI-only secret key — never used in production.
-      # Must be ≥50 chars and must NOT start with "django-insecure-" so that
-      # both the basic SECRET_KEY requirement and the production strength check
-      # in settings.py are satisfied without depending on a GitHub Actions secret
-      # that is unavailable in fork/PR contexts.
-      SECRET_KEY: "ci-only-not-for-production-coconutwirelessfj-1234567890abcdef5678"
+      SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY_CI }}
       ALLOWED_HOSTS: localhost,127.0.0.1,testserver
       CSRF_TRUSTED_ORIGINS: https://localhost,https://example.com
       DATABASE_URL: sqlite:///db.sqlite3

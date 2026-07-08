@@ -71,12 +71,18 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(TradieProfile)
 class TradieProfileAdmin(admin.ModelAdmin):
-    list_display  = ['user', 'business_name', 'years_experience', 'service_towns_display', 'has_tin_letter', 'documents_verified']
-    list_filter   = ['documents_verified']
+    list_display  = ['user', 'business_name', 'years_experience', 'service_towns_display', 'verification_status', 'has_tin_letter', 'documents_verified']
+    list_filter   = ['verification_status', 'documents_verified']
     search_fields = ['user__email', 'user__first_name', 'business_name', 'tin']
     raw_id_fields = ['user']
-    readonly_fields = ['tin_letter_link', 'business_licence_link', 'public_liability_insurance_link',
-                       'electrical_contractors_licence_link', 'plumber_licence_link']
+    readonly_fields = [
+        'documents_verified',
+        'tin_letter_link',
+        'business_licence_link',
+        'public_liability_insurance_link',
+        'electrical_contractors_licence_link',
+        'plumber_licence_link',
+    ]
     fieldsets = (
         ('Business Details',  {'fields': ('user', 'business_name', 'tin', 'years_experience')}),
         ('Trade Categories',  {'fields': ('trades', 'service_towns', 'bio')}),
@@ -87,7 +93,7 @@ class TradieProfileAdmin(admin.ModelAdmin):
             'electrical_contractors_licence', 'electrical_contractors_licence_link',
             'plumber_licence', 'plumber_licence_link',
         )}),
-        ('Approval Status', {'fields': ('documents_verified',)}),
+        ('Approval Status', {'fields': ('verification_status', 'documents_verified')}),
         ('Notes',            {'fields': ('verification_notes',)}),
     )
 

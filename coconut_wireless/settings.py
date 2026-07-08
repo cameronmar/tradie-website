@@ -32,6 +32,10 @@ if not SECRET_KEY:
         SECRET_KEY = 'django-insecure-dev-only-coconut-wireless'
     else:
         raise ImproperlyConfigured('SECRET_KEY environment variable is required when DEBUG is False.')
+if IS_PRODUCTION and (len(SECRET_KEY) < 50 or SECRET_KEY.startswith('django-insecure-')):
+    raise ImproperlyConfigured(
+        'SECRET_KEY must be at least 50 characters and not use the django-insecure prefix in production.'
+    )
 
 ALLOWED_HOSTS = _get_list_env(
     'ALLOWED_HOSTS',
@@ -43,6 +47,13 @@ if not DEBUG and not ALLOWED_HOSTS:
 CSRF_TRUSTED_ORIGINS = _get_list_env('CSRF_TRUSTED_ORIGINS', '')
 if IS_PRODUCTION and not CSRF_TRUSTED_ORIGINS:
     raise ImproperlyConfigured('CSRF_TRUSTED_ORIGINS must be set when DJANGO_ENV is production.')
+
+# Closed beta access controls
+CLOSED_BETA_ENABLED = _get_bool_env('CLOSED_BETA_ENABLED', False)
+BETA_GATE_CLIENT_SIGNUPS = _get_bool_env('BETA_GATE_CLIENT_SIGNUPS', CLOSED_BETA_ENABLED)
+BETA_GATE_TRADIE_SIGNUPS = _get_bool_env('BETA_GATE_TRADIE_SIGNUPS', CLOSED_BETA_ENABLED)
+BETA_ALLOWED_EMAILS = {email.lower() for email in _get_list_env('BETA_ALLOWED_EMAILS', '')}
+BETA_ALLOWED_DOMAINS = {domain.lower().lstrip('@') for domain in _get_list_env('BETA_ALLOWED_DOMAINS', '')}
 
 # ── Application definition ─────────────────────────────────────────────────────
 INSTALLED_APPS = [
@@ -128,6 +139,40 @@ STORAGES = {
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Production media object storage (S3-compatible)
+OBJECT_STORAGE_BACKEND = os.environ.get('OBJECT_STORAGE_BACKEND', 'filesystem').strip().lower()
+if IS_PRODUCTION and OBJECT_STORAGE_BACKEND != 's3':
+    raise ImproperlyConfigured('OBJECT_STORAGE_BACKEND must be set to "s3" in production.')
+
+if OBJECT_STORAGE_BACKEND == 's3':
+    AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME', '').strip()
+    AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', '').strip() or None
+    AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL', '').strip() or None
+    AWS_S3_CUSTOM_DOMAIN = os.environ.get('AWS_S3_CUSTOM_DOMAIN', '').strip() or None
+    AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID', '').strip()
+    AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY', '').strip()
+    AWS_DEFAULT_ACL = None
+    AWS_QUERYSTRING_AUTH = _get_bool_env('AWS_QUERYSTRING_AUTH', True)
+    AWS_QUERYSTRING_EXPIRE = int(os.environ.get('AWS_QUERYSTRING_EXPIRE', '3600'))
+    AWS_S3_FILE_OVERWRITE = False
+
+    required_s3_vars = ('AWS_STORAGE_BUCKET_NAME', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY')
+    missing_s3_vars = [name for name in required_s3_vars if not os.environ.get(name, '').strip()]
+    if missing_s3_vars:
+        raise ImproperlyConfigured(
+            f'Missing required S3 media storage environment variables: {", ".join(missing_s3_vars)}'
+        )
+
+    STORAGES['default'] = {'BACKEND': 'storages.backends.s3.S3Storage'}
+    if AWS_S3_CUSTOM_DOMAIN:
+        MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN.strip("/")}/'
+    elif AWS_S3_ENDPOINT_URL:
+        MEDIA_URL = f'{AWS_S3_ENDPOINT_URL.rstrip("/")}/{AWS_STORAGE_BUCKET_NAME}/'
+    elif AWS_S3_REGION_NAME:
+        MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com/'
+    else:
+        MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/'
+
 # ── Proxy/HTTPS security defaults ──────────────────────────────────────────────
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https') if _get_bool_env('USE_X_FORWARDED_PROTO', IS_PRODUCTION) else None
 SESSION_COOKIE_SECURE = _get_bool_env('SESSION_COOKIE_SECURE', not DEBUG)
@@ -148,7 +193,7 @@ LOGOUT_REDIRECT_URL = '/'
 # ── Email ──────────────────────────────────────────────────────────────────────
 EMAIL_BACKEND = os.environ.get(
     'EMAIL_BACKEND',
-    'django.core.mail.backends.console.EmailBackend'
+    'django.core.mail.backends.smtp.EmailBackend' if IS_PRODUCTION else 'django.core.mail.backends.console.EmailBackend'
 )
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@coconutwireless.fj')
 EMAIL_HOST = os.environ.get('EMAIL_HOST', '')
@@ -156,6 +201,18 @@ EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', '10'))
+
+if IS_PRODUCTION and EMAIL_BACKEND != 'django.core.mail.backends.smtp.EmailBackend':
+    raise ImproperlyConfigured('EMAIL_BACKEND must be django.core.mail.backends.smtp.EmailBackend in production.')
+
+if IS_PRODUCTION:
+    required_email_vars = ('EMAIL_HOST', 'EMAIL_HOST_USER', 'EMAIL_HOST_PASSWORD')
+    missing_email_vars = [name for name in required_email_vars if not os.environ.get(name, '').strip()]
+    if missing_email_vars:
+        raise ImproperlyConfigured(
+            f'Missing required SMTP environment variables in production: {", ".join(missing_email_vars)}'
+        )
 
 # ── Observability (optional) ──────────────────────────────────────────────────
 SENTRY_DSN = os.environ.get('SENTRY_DSN', '').strip()

@@ -25,6 +25,11 @@ main{display:flex;align-items:center;justify-content:center;padding:36px 20px;mi
   <div class="reg-wrap">
     <h1>Create your account</h1>
     <p class="sub">Already have one? <a href="{% url 'login' %}">Log in here</a></p>
+    {% if closed_beta_enabled and beta_gate_clients %}
+    <div class="card" style="margin-bottom:14px;border:1px solid #ffe2a8;background:#fffaf0;">
+      Closed beta access is invite-only. Use your approved email to register.
+    </div>
+    {% endif %}
 
     <div class="type-toggle">
       <div class="type-btn active">

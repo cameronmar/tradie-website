@@ -8,6 +8,7 @@ Privacy rule enforced here:
 from django.contrib import messages as flash
 from django.contrib.auth import authenticate, login, logout
 from decimal import Decimal
+from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db import DatabaseError, connection
@@ -62,6 +63,35 @@ from .utils import (
 def _require_role(request, role):
     if not request.user.is_authenticated or request.user.role != role:
         raise PermissionDenied
+
+
+def _get_tradie_profile(user):
+    try:
+        return user.tradie_profile
+    except TradieProfile.DoesNotExist:
+        return None
+
+
+def _require_approved_tradie(request):
+    if not request.user.is_authenticated:
+        raise PermissionDenied
+    if request.user.role != User.ROLE_TRADIE:
+        flash.error(request, 'Only provider accounts can access this action.')
+        return redirect('dashboard')
+    profile = _get_tradie_profile(request.user)
+    if not profile:
+        flash.warning(request, 'Your provider profile could not be found. Please contact support.')
+        return redirect('tradie_dashboard')
+    if profile.verification_status == TradieProfile.VERIFICATION_PENDING:
+        flash.warning(request, 'Your provider account is pending verification. You can browse, but quoting is disabled.')
+        return redirect('tradie_dashboard')
+    if profile.verification_status == TradieProfile.VERIFICATION_REJECTED:
+        flash.error(request, 'Your provider account verification was rejected. Please contact support.')
+        return redirect('tradie_dashboard')
+    if profile.verification_status == TradieProfile.VERIFICATION_SUSPENDED:
+        flash.error(request, 'Your provider account is suspended. Please contact support.')
+        return redirect('tradie_dashboard')
+    return None
 
 
 def _build_conversations(user):
@@ -133,7 +163,11 @@ def register_client(request):
         login(request, user)
         flash.success(request, f'Bula, {user.first_name}! Your client account is ready.')
         return redirect('client_dashboard')
-    return render(request, 'marketplace/register_client.html', {'form': form})
+    return render(request, 'marketplace/register_client.html', {
+        'form': form,
+        'closed_beta_enabled': settings.CLOSED_BETA_ENABLED,
+        'beta_gate_clients': settings.BETA_GATE_CLIENT_SIGNUPS,
+    })
 
 
 def register_tradie(request):
@@ -152,12 +186,14 @@ def register_tradie(request):
             accepted_invoicing_terms=form.cleaned_data.get('accepted_invoicing_terms', False),
         )
         login(request, user)
-        flash.success(request, f'Bula, {user.first_name}! Your provider account is ready. We will verify your documents shortly.')
+        flash.success(request, f'Bula, {user.first_name}! Your provider account is created and pending document verification.')
         return redirect('tradie_dashboard')
     return render(request, 'marketplace/register_tradie.html', {
         'form': form,
         'trade_choices': TRADE_CHOICES,
         'town_choices': TOWN_CHOICES,
+        'closed_beta_enabled': settings.CLOSED_BETA_ENABLED,
+        'beta_gate_tradies': settings.BETA_GATE_TRADIE_SIGNUPS,
     })
 
 
@@ -214,13 +250,11 @@ def client_dashboard(request):
 @login_required
 def tradie_dashboard(request):
     _require_role(request, User.ROLE_TRADIE)
-    try:
-        profile = request.user.tradie_profile
-    except TradieProfile.DoesNotExist:
-        profile = None
+    profile = _get_tradie_profile(request.user)
+    tradie_is_approved = profile.is_approved() if profile else False
 
     nearby = Task.objects.none()
-    if profile and profile.service_towns:
+    if tradie_is_approved and profile.service_towns:
         nearby = (
             Task.objects.filter(
                 status=Task.STATUS_OPEN,
@@ -253,6 +287,7 @@ def tradie_dashboard(request):
         ),
         'appointments':    provider_appointments,
         'sponsors':        Sponsor.get_active_for_placement('tradie_dashboard'),
+        'tradie_is_approved': tradie_is_approved,
     }
     return render(request, 'marketplace/tradie_dashboard.html', ctx)
 
@@ -324,6 +359,7 @@ def task_detail(request, pk):
 
     user_quote        = None
     can_quote         = False
+    tradie_is_approved = False
     can_accept        = False
     can_complete      = False
     can_rate_tradie   = False
@@ -333,7 +369,9 @@ def task_detail(request, pk):
 
     if request.user.is_authenticated:
         u = request.user
-        if u.role == User.ROLE_TRADIE and task.status == Task.STATUS_OPEN:
+        tradie_profile = _get_tradie_profile(u) if u.role == User.ROLE_TRADIE else None
+        tradie_is_approved = tradie_profile.is_approved() if tradie_profile else False
+        if u.role == User.ROLE_TRADIE and tradie_is_approved and task.status == Task.STATUS_OPEN:
             try:
                 user_quote = quotes.get(tradie=u)
             except Quote.DoesNotExist:
@@ -346,7 +384,12 @@ def task_detail(request, pk):
                 can_complete = True
 
     appointments = task.quoting_appointments.select_related('provider', 'client', 'selected_slot').prefetch_related('slots').order_by('-created_at')
-    can_book_appointment = request.user.is_authenticated and request.user.role == User.ROLE_TRADIE and task.status == Task.STATUS_OPEN
+    can_book_appointment = (
+        request.user.is_authenticated
+        and request.user.role == User.ROLE_TRADIE
+        and tradie_is_approved
+        and task.status == Task.STATUS_OPEN
+    )
     user_has_appointment = request.user.is_authenticated and appointments.filter(provider=request.user).exists()
 
     can_message_client = (
@@ -396,6 +439,7 @@ def task_detail(request, pk):
         'can_book_appointment': can_book_appointment,
         'user_has_appointment': user_has_appointment,
         'can_message_client': can_message_client,
+        'tradie_can_participate': tradie_is_approved,
         'sponsors':        Sponsor.get_active_for_placement('task_detail_sidebar'),
     })
 
@@ -404,7 +448,9 @@ def task_detail(request, pk):
 
 @login_required
 def submit_quote(request, pk):
-    _require_role(request, User.ROLE_TRADIE)
+    approval_redirect = _require_approved_tradie(request)
+    if approval_redirect:
+        return approval_redirect
     task = get_object_or_404(Task, pk=pk, status=Task.STATUS_OPEN)
     if Quote.objects.filter(task=task, tradie=request.user).exists():
         flash.error(request, 'You have already quoted on this task.')
@@ -455,7 +501,9 @@ def submit_quote(request, pk):
 
 @login_required
 def book_quoting_appointment(request, pk):
-    _require_role(request, User.ROLE_TRADIE)
+    approval_redirect = _require_approved_tradie(request)
+    if approval_redirect:
+        return approval_redirect
     task = get_object_or_404(Task, pk=pk, status=Task.STATUS_OPEN)
     existing_appointments = task.quoting_appointments.filter(provider=request.user).prefetch_related('slots').order_by('-created_at')
     form = QuotingAppointmentForm(request.POST or None)
@@ -499,7 +547,9 @@ def decline_quoting_appointment(request, pk, appt_pk):
 
 @login_required
 def cancel_quoting_appointment(request, pk, appt_pk):
-    _require_role(request, User.ROLE_TRADIE)
+    approval_redirect = _require_approved_tradie(request)
+    if approval_redirect:
+        return approval_redirect
     appointment = get_object_or_404(QuotingAppointment, pk=appt_pk, task__pk=pk, provider=request.user, status=QuotingAppointment.STATUS_REQUESTED)
     appointment.status = QuotingAppointment.STATUS_CANCELLED
     appointment.save()

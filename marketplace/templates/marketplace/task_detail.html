@@ -208,6 +208,14 @@
         </div>
         {% endif %}
 
+        {% if user.is_authenticated and user.role == 'tradie' and not tradie_can_participate and task.status == 'open' %}
+        <div class="sect-card">
+          <div class="action-banner" style="margin:0;">
+            Your provider account is pending approval. Quoting and appointment requests are disabled until verification is complete.
+          </div>
+        </div>
+        {% endif %}
+
         {% if can_quote %}
         <div class="sect-card">
           <h2>Submit a quote</h2>

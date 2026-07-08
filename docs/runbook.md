@@ -18,6 +18,8 @@
 - Restart app instance.
 - Verify required env vars are set correctly (`DJANGO_ENV`, `DEBUG`, `SECRET_KEY`, `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS`, `DATABASE_URL`).
 - Verify database availability and credentials.
+- Verify object storage settings are valid (`OBJECT_STORAGE_BACKEND=s3`, bucket, keys, endpoint if applicable).
+- Verify SMTP settings are valid (`EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`).
 
 ## Rollback
 
@@ -35,3 +37,25 @@
   - impact
   - root cause (if known)
   - remediation and prevention actions
+
+## Tradie Verification Operations
+
+Use Django Admin → **Tradie Profiles** for verification decisions:
+
+- `pending`: default state after provider signup; provider cannot quote or request appointments
+- `approved`: documents accepted; provider can quote and book appointments
+- `rejected`: provider blocked pending remediation
+- `suspended`: provider blocked after approval due to risk/compliance concerns
+
+Recommended verification cadence:
+
+- Closed beta: review pending submissions at least once per business day
+- High onboarding periods: review twice daily
+
+Minimum review checklist for each provider:
+
+1. TIN letter uploaded and legible
+2. If Electrical selected, electrical licence uploaded
+3. If Plumbing selected, plumber licence uploaded
+4. Business details and service towns look valid
+5. Verification notes updated in admin when rejecting/suspending

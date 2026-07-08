@@ -46,6 +46,27 @@ Checks:
 | `ALLOWED_HOSTS` | Yes | Comma-separated production hostnames. Startup fails if missing in production. |
 | `CSRF_TRUSTED_ORIGINS` | Yes | Comma-separated `https://...` origins for production forms/admin. Startup fails if missing in production. |
 | `DATABASE_URL` | Yes (production) | Postgres connection URL in production. SQLite is acceptable for local dev/CI. |
+| `OBJECT_STORAGE_BACKEND` | Yes (production) | Must be `s3` in production. Startup fails otherwise. |
+| `AWS_STORAGE_BUCKET_NAME` | Yes (when `OBJECT_STORAGE_BACKEND=s3`) | Bucket for media uploads (tradie docs, task photos, sponsor assets). |
+| `AWS_ACCESS_KEY_ID` | Yes (when `OBJECT_STORAGE_BACKEND=s3`) | Object storage access key. |
+| `AWS_SECRET_ACCESS_KEY` | Yes (when `OBJECT_STORAGE_BACKEND=s3`) | Object storage secret key. |
+| `AWS_S3_REGION_NAME` | Optional | S3 region name. |
+| `AWS_S3_ENDPOINT_URL` | Optional | Required for S3-compatible providers (e.g. R2/MinIO). |
+| `AWS_S3_CUSTOM_DOMAIN` | Optional | Custom media domain/CDN domain. |
+| `AWS_QUERYSTRING_AUTH` | Optional | Defaults to `True` to keep uploaded documents private via signed URLs. |
+| `AWS_QUERYSTRING_EXPIRE` | Optional | Signed URL expiry seconds, default `3600`. |
+| `CLOSED_BETA_ENABLED` | Optional | Global signup gate switch. |
+| `BETA_GATE_CLIENT_SIGNUPS` | Optional | Override signup gate for clients (`True`/`False`). |
+| `BETA_GATE_TRADIE_SIGNUPS` | Optional | Override signup gate for tradies (`True`/`False`). |
+| `BETA_ALLOWED_EMAILS` | Optional | Comma-separated invite email allowlist. |
+| `BETA_ALLOWED_DOMAINS` | Optional | Comma-separated invite domain allowlist. |
+| `EMAIL_BACKEND` | Yes (production) | Defaults to SMTP in production. |
+| `EMAIL_HOST` | Yes (production SMTP) | SMTP host for outbound platform email. Startup fails if missing in production SMTP mode. |
+| `EMAIL_HOST_USER` | Yes (production SMTP) | SMTP username/API key. |
+| `EMAIL_HOST_PASSWORD` | Yes (production SMTP) | SMTP credential. |
+| `EMAIL_PORT` | Optional | Defaults to `587`. |
+| `EMAIL_USE_TLS` | Optional | Defaults to `True`. |
+| `EMAIL_TIMEOUT` | Optional | Defaults to `10` seconds. |
 | `USE_X_FORWARDED_PROTO` | Optional | Defaults to `True` in production for hosted proxy TLS. |
 | `SESSION_COOKIE_SECURE` | Optional | Defaults to `True` in production. |
 | `CSRF_COOKIE_SECURE` | Optional | Defaults to `True` in production. |
@@ -104,7 +125,47 @@ Then verify:
    - **Start command:** `gunicorn coconut_wireless.wsgi --bind 0.0.0.0:$PORT --log-file -`
    - **Health check:** `/healthz/`
 6. Configure domain + HTTPS in Railway.
-7. Media uploads stored on local disk are ephemeral on Railway and will be lost on restart/redeploy unless you move media storage to an external object store.
+7. Configure S3-compatible object storage and set `OBJECT_STORAGE_BACKEND=s3` plus required AWS variables.
+
+## Admin Launch Operations
+
+1. Create first admin user after initial deploy:
+   ```bash
+   python manage.py createsuperuser
+   ```
+2. Sign in at `/admin/`.
+3. Review all new tradie registrations at **Tradie Profiles**:
+   - `pending`: awaiting document review (cannot quote)
+   - `approved`: verified and allowed to quote/book appointments
+   - `rejected`: failed verification, access blocked
+   - `suspended`: previously active but currently blocked
+4. Recommended review cadence:
+   - During closed beta: at least once per business day
+   - During onboarding pushes: twice daily
+
+## Closed Beta Configuration
+
+Use invite-only gating while beta is closed:
+
+1. Set `CLOSED_BETA_ENABLED=True`.
+2. Populate either `BETA_ALLOWED_EMAILS` and/or `BETA_ALLOWED_DOMAINS`.
+3. Optionally override by audience with `BETA_GATE_CLIENT_SIGNUPS` and `BETA_GATE_TRADIE_SIGNUPS`.
+4. Public marketing pages remain accessible; only registration is gated.
+
+## Pre-Beta Go-Live Checklist
+
+- Required production env vars configured
+- Railway Postgres attached (`DATABASE_URL` set)
+- Object storage configured (`OBJECT_STORAGE_BACKEND=s3` + AWS credentials)
+- SMTP configured and tested (`EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`)
+- Initial superuser created
+- `python manage.py check --deploy` passes
+- `python manage.py migrate --noinput` passes
+- `python manage.py collectstatic --noinput` passes
+- `python admin_smoke_test.py` passes
+- One client signup (invited email) verified
+- One tradie signup + document review + approval verified
+- `GET /healthz/` and `GET /admin/login/` return 200
 
 ## Deploy on Render
 

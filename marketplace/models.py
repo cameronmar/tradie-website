@@ -71,6 +71,17 @@ class User(AbstractUser):
 # ── Tradie profile ────────────────────────────────────────────────────────────
 
 class TradieProfile(models.Model):
+    VERIFICATION_PENDING = 'pending'
+    VERIFICATION_APPROVED = 'approved'
+    VERIFICATION_REJECTED = 'rejected'
+    VERIFICATION_SUSPENDED = 'suspended'
+    VERIFICATION_STATUS_CHOICES = [
+        (VERIFICATION_PENDING, 'Pending review'),
+        (VERIFICATION_APPROVED, 'Approved'),
+        (VERIFICATION_REJECTED, 'Rejected'),
+        (VERIFICATION_SUSPENDED, 'Suspended'),
+    ]
+
     user            = models.OneToOneField(User, on_delete=models.CASCADE, related_name='tradie_profile')
     business_name   = models.CharField(max_length=100, blank=True)
     tin             = models.CharField(max_length=50, blank=True, verbose_name='TIN Number (optional)')
@@ -85,11 +96,25 @@ class TradieProfile(models.Model):
     public_liability_insurance    = models.FileField(upload_to='provider_documents/', blank=True, verbose_name='Public Liability Insurance')
     electrical_contractors_licence = models.FileField(upload_to='provider_documents/', blank=True, verbose_name='Electrical Contractors Licence')
     plumber_licence               = models.FileField(upload_to='provider_documents/', blank=True, verbose_name='Plumber Licence')
+    verification_status           = models.CharField(
+        max_length=20,
+        choices=VERIFICATION_STATUS_CHOICES,
+        default=VERIFICATION_PENDING,
+        verbose_name='Verification status',
+    )
     documents_verified            = models.BooleanField(default=False, verbose_name='Documents verified by admin')
     verification_notes            = models.TextField(blank=True, verbose_name='Verification notes (admin only)')
 
     def __str__(self):
         return f'{self.user} – Tradie Profile'
+
+    def save(self, *args, **kwargs):
+        """Keep legacy documents_verified in sync with verification_status."""
+        self.documents_verified = self.verification_status == self.VERIFICATION_APPROVED
+        super().save(*args, **kwargs)
+
+    def is_approved(self):
+        return self.verification_status == self.VERIFICATION_APPROVED
 
     def trades_display(self):
         lookup = dict(TRADE_CHOICES)
