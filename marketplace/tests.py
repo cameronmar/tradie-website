@@ -66,7 +66,12 @@ class ProductionSettingsTests(TestCase):
 
     @staticmethod
     def _run_settings_import(extra_env):
-        env = os.environ.copy()
+        env = {
+            'PATH': os.environ.get('PATH', ''),
+            'PYTHONPATH': os.environ.get('PYTHONPATH', ''),
+            'PYTHONHOME': os.environ.get('PYTHONHOME', ''),
+            'SYSTEMROOT': os.environ.get('SYSTEMROOT', ''),
+        }
         env.update(extra_env)
         return subprocess.run(
             [sys.executable, '-c', 'import coconut_wireless.settings'],
@@ -74,6 +79,7 @@ class ProductionSettingsTests(TestCase):
             env=env,
             capture_output=True,
             text=True,
+            check=False,
         )
 
     def test_production_requires_debug_false(self):

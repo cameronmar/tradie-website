@@ -43,6 +43,13 @@ ALLOWED_HOSTS = _get_list_env(
 )
 if not DEBUG and not ALLOWED_HOSTS:
     raise ImproperlyConfigured('ALLOWED_HOSTS must be set when DEBUG is False.')
+# Railway healthchecks use this hostname — always allow it.
+if 'healthcheck.railway.app' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('healthcheck.railway.app')
+# Include the Railway-assigned public domain if available.
+_railway_domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '').strip()
+if _railway_domain and _railway_domain not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(_railway_domain)
 
 CSRF_TRUSTED_ORIGINS = _get_list_env('CSRF_TRUSTED_ORIGINS', '')
 if IS_PRODUCTION and not CSRF_TRUSTED_ORIGINS:
