@@ -120,8 +120,9 @@ Then verify:
 3. Railway uses the committed `railway.toml` and `.python-version` files for deploy configuration.
 4. Add a Railway Postgres service and link `DATABASE_URL` from the plugin into the web service variables.
 5. Railway deploy behavior is:
+   - **Builder:** `RAILPACK`
    - **Build command:** `pip install -r requirements.txt && python manage.py collectstatic --noinput`
-   - **Deploy command:** `python manage.py migrate --noinput`
+   - **Pre-deploy command:** `python manage.py migrate --noinput`
    - **Start command:** `gunicorn coconut_wireless.wsgi --bind 0.0.0.0:$PORT --log-file -`
    - **Health check:** `/healthz/`
 6. Configure domain + HTTPS in Railway.
