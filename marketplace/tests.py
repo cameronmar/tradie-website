@@ -308,7 +308,7 @@ class ClosedBetaAndApprovalFlowTests(TestCase):
             },
             secure=True,
         )
-        self.assertRedirects(response, reverse('tradie_dashboard'))
+        self.assertRedirects(response, reverse('tradie_dashboard'), fetch_redirect_response=False)
         self.assertFalse(Quote.objects.filter(task=self.task, tradie=self.tradie_user).exists())
 
     def test_approved_tradie_can_submit_quote(self):
@@ -324,7 +324,7 @@ class ClosedBetaAndApprovalFlowTests(TestCase):
             },
             secure=True,
         )
-        self.assertRedirects(response, reverse('task_detail', args=[self.task.pk]))
+        self.assertRedirects(response, reverse('task_detail', args=[self.task.pk]), fetch_redirect_response=False)
         self.assertTrue(Quote.objects.filter(task=self.task, tradie=self.tradie_user).exists())
 
     def test_core_task_quote_accept_complete_flow(self):
