@@ -13,8 +13,7 @@ jobs:
     env:
       DJANGO_ENV: production
       DEBUG: "False"
-      # Falls back to a CI-only key when the secret is not yet configured; never use this value in production.
-      SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY_CI || 'ci-only-not-for-production-coconutwireless-fj-placeholder' }}
+      SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY_CI }}
       ALLOWED_HOSTS: localhost,127.0.0.1,testserver
       CSRF_TRUSTED_ORIGINS: https://localhost,https://example.com
       DATABASE_URL: sqlite:///db.sqlite3
