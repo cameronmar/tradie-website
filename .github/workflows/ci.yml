@@ -17,6 +17,16 @@ jobs:
       ALLOWED_HOSTS: localhost,127.0.0.1,testserver
       CSRF_TRUSTED_ORIGINS: https://localhost,https://example.com
       DATABASE_URL: sqlite:///db.sqlite3
+      # Object storage — dummy values satisfy production startup checks; no real S3 calls are made in CI
+      OBJECT_STORAGE_BACKEND: s3
+      AWS_STORAGE_BUCKET_NAME: ci-test-bucket
+      AWS_ACCESS_KEY_ID: ci-test-key-id
+      AWS_SECRET_ACCESS_KEY: ci-test-secret-key
+      AWS_S3_ENDPOINT_URL: https://ci-test.r2.cloudflarestorage.com
+      # SMTP — dummy values satisfy production startup checks; no email is sent in CI
+      EMAIL_HOST: smtp.ci-test.example.com
+      EMAIL_HOST_USER: ci@example.com
+      EMAIL_HOST_PASSWORD: ci-test-password
     steps:
       - name: Check out code
         uses: actions/checkout@v4
