@@ -41,6 +41,13 @@ ALLOWED_HOSTS = _get_list_env(
     'ALLOWED_HOSTS',
     '127.0.0.1,localhost,testserver' if DEBUG else ''
 )
+# Railway healthchecks use this hostname — always allow it.
+if 'healthcheck.railway.app' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('healthcheck.railway.app')
+# Include the Railway-assigned public domain if available.
+_railway_domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '').strip()
+if _railway_domain and _railway_domain not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(_railway_domain)
 if not DEBUG and not ALLOWED_HOSTS:
     raise ImproperlyConfigured('ALLOWED_HOSTS must be set when DEBUG is False.')
 
