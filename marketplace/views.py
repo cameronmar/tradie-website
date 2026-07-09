@@ -21,7 +21,6 @@ from django.utils import timezone
 from .constants import (
     PRIVATE_REVIEW_CRITERIA,
     PUBLIC_REVIEW_CRITERIA,
-    TRADE_CHOICES,
     TOWN_CHOICES,
 )
 from .forms import (
@@ -38,6 +37,7 @@ from .forms import (
 from .models import (
     Invoice,
     Message,
+    PlatformNotice,
     PlatformSettings,
     PublicReview,
     Quote,
@@ -46,6 +46,7 @@ from .models import (
     Sponsor,
     Task,
     TermsAcceptance,
+    TradeCategory,
     TradieProfile,
     User,
 )
@@ -193,7 +194,7 @@ def register_tradie(request):
         return redirect('tradie_dashboard')
     return render(request, 'marketplace/register_tradie.html', {
         'form': form,
-        'trade_choices': TRADE_CHOICES,
+        'trade_choices': TradeCategory.get_choices(),
         'town_choices': TOWN_CHOICES,
         'closed_beta_enabled': settings.CLOSED_BETA_ENABLED,
         'beta_gate_tradies': settings.BETA_GATE_TRADIE_SIGNUPS,
@@ -330,7 +331,7 @@ def browse_tasks(request):
         'category_filter': category,
         'keyword_filter':  keyword,
         'town_filter':     town,
-        'category_choices': TRADE_CHOICES,
+        'category_choices': TradeCategory.get_choices(),
         'town_choices':    TOWN_CHOICES,
         'sponsors':        Sponsor.get_active_for_placement('browse_tasks_sidebar'),
     })
@@ -350,7 +351,7 @@ def post_task(request):
         return redirect('task_detail', pk=task.pk)
     return render(request, 'marketplace/post_task.html', {
         'form': form,
-        'category_choices': TRADE_CHOICES,
+        'category_choices': TradeCategory.get_choices(),
     })
 
 
@@ -706,6 +707,15 @@ def tradie_profile(request, pk):
         'criteria_data': criteria_data,
         'overall':       overall,
         'jobs_done':     tradie.assigned_tasks.filter(status=Task.STATUS_COMPLETED).count(),
+    })
+
+
+# ── Notices ───────────────────────────────────────────────────────────────────
+
+@login_required
+def notices(request):
+    return render(request, 'marketplace/notices.html', {
+        'notices': PlatformNotice.objects.filter(recipient=request.user).order_by('-sent_at'),
     })
 
 

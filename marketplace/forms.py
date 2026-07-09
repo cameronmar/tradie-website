@@ -2,7 +2,7 @@ from django import forms
 from django.conf import settings
 from django.core.exceptions import ValidationError
 
-from .constants import TRADE_CHOICES, TOWN_CHOICES, EXPERIENCE_CHOICES
+from .constants import TOWN_CHOICES, EXPERIENCE_CHOICES
 from .models import User, TradieProfile, Task, Quote, Message, TradeCategory, TaskPhoto
 
 
@@ -85,7 +85,7 @@ class TradieRegistrationForm(forms.Form):
     tin              = forms.CharField(max_length=50, required=False, label='TIN Number (optional)', widget=_input('e.g. P033-12345'))
     years_experience = forms.ChoiceField(choices=[('', 'Select…')] + list(EXPERIENCE_CHOICES), widget=_select())
     bio              = forms.CharField(widget=forms.Textarea(attrs={'class': 'form-input', 'rows': 4, 'placeholder': 'Tell clients about your experience, specialties and work area…'}))
-    trades           = forms.MultipleChoiceField(choices=TRADE_CHOICES, widget=forms.CheckboxSelectMultiple)
+    trades           = forms.MultipleChoiceField(choices=[], widget=forms.CheckboxSelectMultiple)
     service_towns    = forms.MultipleChoiceField(choices=TOWN_CHOICES, widget=forms.CheckboxSelectMultiple)
     # Verification documents
     tin_letter                    = forms.FileField(label='TIN Letter', help_text='Upload your FRCA TIN letter (PDF or image). Required.')
@@ -106,6 +106,10 @@ class TradieRegistrationForm(forms.Form):
         required=True,
         error_messages={'required': 'You must acknowledge the invoicing and payment obligations.'}
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['trades'].choices = TradeCategory.get_choices()
 
     def clean_email(self):
         email = self.cleaned_data['email'].lower()
@@ -162,12 +166,19 @@ class LoginForm(forms.Form):
 # ── Task form ─────────────────────────────────────────────────────────────────
 
 class TaskForm(forms.ModelForm):
+    category = forms.ChoiceField(
+        choices=[], required=False, widget=forms.Select(attrs={'class': 'form-input'})
+    )
     categories = forms.ModelMultipleChoiceField(
         queryset=TradeCategory.objects.all(),
         widget=forms.CheckboxSelectMultiple,
         required=False,
         label='Job Categories (select one or more)'
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['category'].choices = TradeCategory.get_choices()
 
     class Meta:
         model  = Task
@@ -181,7 +192,6 @@ class TaskForm(forms.ModelForm):
         ]
         widgets = {
             'title':               forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'e.g. Fix leaking tap in kitchen'}),
-            'category':            forms.Select(attrs={'class': 'form-input'}),
             'description':         forms.Textarea(attrs={'class': 'form-input', 'rows': 5, 'placeholder': 'Describe the job in detail — include make/model, measurements, or access instructions.'}),
             'budget':              forms.NumberInput(attrs={'class': 'form-input', 'placeholder': 'e.g. 150', 'min': '0', 'step': '0.01'}),
             'town':                forms.Select(attrs={'class': 'form-input'}),

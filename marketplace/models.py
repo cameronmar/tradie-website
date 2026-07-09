@@ -2,7 +2,7 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 
-from .constants import TRADE_CHOICES, TOWN_CHOICES, EXPERIENCE_CHOICES
+from .constants import TOWN_CHOICES, EXPERIENCE_CHOICES
 from .managers import PublicReviewManager, PrivateReviewManager
 
 
@@ -87,7 +87,7 @@ class TradieProfile(models.Model):
     tin             = models.CharField(max_length=50, blank=True, verbose_name='TIN Number (optional)')
     years_experience = models.CharField(max_length=20, blank=True, choices=EXPERIENCE_CHOICES)
     bio             = models.TextField(blank=True)
-    trades          = models.JSONField(default=list)        # list of trade keys from TRADE_CHOICES
+    trades          = models.JSONField(default=list)        # list of TradeCategory slugs
     service_towns   = models.JSONField(default=list)        # list of town keys from TOWN_CHOICES
 
     # Provider verification documents
@@ -117,7 +117,7 @@ class TradieProfile(models.Model):
         return self.verification_status == self.VERIFICATION_APPROVED
 
     def trades_display(self):
-        lookup = dict(TRADE_CHOICES)
+        lookup = TradeCategory.get_label_map()
         return [lookup.get(t, t) for t in (self.trades or [])]
 
     def service_towns_display(self):
@@ -181,6 +181,27 @@ class TradeCategory(models.Model):
     def __str__(self):
         return self.name
 
+    @classmethod
+    def get_choices(cls):
+        """
+        Live (slug, "icon name") choices for job/trade categories — the single
+        source of truth for category pickers and skill selection across the
+        site. Renaming a category here (e.g. Chef -> Catering) updates every
+        picker and display label without a code change. Falls back to the
+        static TRADE_CHOICES seed list only if the table is empty (e.g. a
+        fresh install before migrations have seeded it).
+        """
+        rows = list(cls.objects.filter(active=True).order_by('name').values_list('slug', 'icon', 'name'))
+        if not rows:
+            from .constants import TRADE_CHOICES
+            return TRADE_CHOICES
+        return [(slug, f'{icon} {name}'.strip()) for slug, icon, name in rows]
+
+    @classmethod
+    def get_label_map(cls):
+        """Dict of slug -> 'icon name' display label, for quick lookups."""
+        return dict(cls.get_choices())
+
 
 class Task(models.Model):
     STATUS_OPEN        = 'open'
@@ -200,7 +221,7 @@ class Task(models.Model):
 
     client          = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tasks')
     title           = models.CharField(max_length=200)
-    category        = models.CharField(max_length=20, choices=TRADE_CHOICES, blank=True)  # Legacy single category
+    category        = models.CharField(max_length=20, blank=True)  # Slug into TradeCategory; see category_label
     categories      = models.ManyToManyField(TradeCategory, related_name='tasks', blank=True)  # New multi-category
     description     = models.TextField()
     budget          = models.DecimalField(max_digits=10, decimal_places=2)
@@ -273,6 +294,13 @@ class Task(models.Model):
 
     def __str__(self):
         return self.title
+
+    @property
+    def category_label(self):
+        """Display label for `category`, live from TradeCategory (editable in admin)."""
+        if not self.category:
+            return ''
+        return TradeCategory.get_label_map().get(self.category, self.category)
 
     @property
     def quote_count(self):

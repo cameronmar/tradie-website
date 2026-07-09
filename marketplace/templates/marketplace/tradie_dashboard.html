@@ -50,6 +50,7 @@ footer{display:none;}
     {% if user.pk %}<a href="{% url 'tradie_profile' user.pk %}" class="sb-link"><span class="icon">👤</span>My profile</a>{% endif %}
     <div class="sb-lbl" style="margin-top:10px;">Account</div>
     <a href="{% url 'inbox' %}" class="sb-link"><span class="icon">💬</span>Messages</a>
+    <a href="{% url 'notices' %}" class="sb-link"><span class="icon">🔔</span>Notices</a>
     <a href="{% url 'billing' %}" class="sb-link"><span class="icon">🧾</span>Billing</a>
     <a href="{% url 'logout' %}" class="sb-link"><span class="icon">🚪</span>Log out</a>
     {% if sponsors %}
@@ -93,7 +94,7 @@ footer{display:none;}
       <div>
         <div class="job-title"><a href="{% url 'task_detail' q.task.pk %}" style="text-decoration:none;color:inherit;">{{ q.task.title }}</a></div>
         <div class="job-meta">
-          <span>{{ q.task.get_category_display }}</span>
+          <span>{{ q.task.category_label }}</span>
           <span>📍 {{ q.task.town }}</span>
           <span>My quote: FJD ${{ q.price }}</span>
           <span>Submitted {{ q.created_at|timesince }} ago</span>
@@ -114,7 +115,7 @@ footer{display:none;}
       <div>
         <div class="job-title"><a href="{% url 'task_detail' q.task.pk %}" style="text-decoration:none;color:inherit;">{{ q.task.title }}</a></div>
         <div class="job-meta">
-          <span>{{ q.task.get_category_display }}</span>
+          <span>{{ q.task.category_label }}</span>
           <span>📍 {{ q.task.town }}</span>
           <span>Client: {{ q.task.client.first_name }}</span>
         </div>
@@ -134,7 +135,7 @@ footer{display:none;}
     <div class="job-row">
       <div>
         <div class="job-title"><a href="{% url 'task_detail' t.pk %}" style="text-decoration:none;color:inherit;">{{ t.title }}</a></div>
-        <div class="job-meta"><span>{{ t.get_category_display }}</span><span>📍 {{ t.town }}</span><span>Client: {{ t.client.first_name }}</span></div>
+        <div class="job-meta"><span>{{ t.category_label }}</span><span>📍 {{ t.town }}</span><span>Client: {{ t.client.first_name }}</span></div>
       </div>
       <div class="job-right">
         <span class="chip chip-completed">Done</span>
@@ -174,7 +175,7 @@ footer{display:none;}
     <a href="{% url 'task_detail' t.pk %}" class="nearby">
       <div class="nearby-row">
         <div>
-          <span class="chip chip-open" style="margin-bottom:6px;display:inline-block;">{{ t.get_category_display }}</span>
+          <span class="chip chip-open" style="margin-bottom:6px;display:inline-block;">{{ t.category_label }}</span>
           <div class="job-title">{{ t.title }}</div>
           <div class="job-meta"><span>📍 {{ t.town }}</span><span>Posted {{ t.created_at|timesince }} ago</span><span>{{ t.quote_count }} quote{{ t.quote_count|pluralize }}</span></div>
         </div>

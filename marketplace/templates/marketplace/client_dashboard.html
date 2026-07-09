@@ -54,6 +54,7 @@ footer{display:none;}/* hide footer inside dashboard layout */
     <a href="{% url 'post_task' %}" class="sb-link"><span class="icon">➕</span>Post a task</a>
     <div class="sb-lbl" style="margin-top:10px;">Account</div>
     <a href="{% url 'inbox' %}" class="sb-link"><span class="icon">💬</span>Messages</a>
+    <a href="{% url 'notices' %}" class="sb-link"><span class="icon">🔔</span>Notices</a>
     <a href="{% url 'how_it_works' %}" class="sb-link"><span class="icon">ℹ️</span>How It Works</a>
     <a href="{% url 'logout' %}" class="sb-link"><span class="icon">🚪</span>Log out</a>
     {% if sponsors %}
@@ -86,7 +87,7 @@ footer{display:none;}/* hide footer inside dashboard layout */
       <div class="task-row-info">
         <div class="task-row-title"><a href="{% url 'task_detail' t.pk %}" style="text-decoration:none;color:inherit;">{{ t.title }}</a></div>
         <div class="task-row-meta">
-          <span>{{ t.get_category_display }}</span>
+          <span>{{ t.category_label }}</span>
           <span>📍 {{ t.town }}</span>
           <span>💬 {{ t.quote_count }} quote{{ t.quote_count|pluralize }}</span>
           <span>{{ t.created_at|timesince }} ago</span>
@@ -108,7 +109,7 @@ footer{display:none;}/* hide footer inside dashboard layout */
       <div class="task-row-info">
         <div class="task-row-title"><a href="{% url 'task_detail' t.pk %}" style="text-decoration:none;color:inherit;">{{ t.title }}</a></div>
         <div class="task-row-meta">
-          <span>{{ t.get_category_display }}</span>
+          <span>{{ t.category_label }}</span>
           <span>📍 {{ t.town }}</span>
           {% if t.assigned_tradie %}<span>🔧 {{ t.assigned_tradie.full_name }}</span>{% endif %}
         </div>
@@ -129,7 +130,7 @@ footer{display:none;}/* hide footer inside dashboard layout */
       <div class="task-row-info">
         <div class="task-row-title"><a href="{% url 'task_detail' t.pk %}" style="text-decoration:none;color:inherit;">{{ t.title }}</a></div>
         <div class="task-row-meta">
-          <span>{{ t.get_category_display }}</span>
+          <span>{{ t.category_label }}</span>
           <span>📍 {{ t.town }}</span>
           {% if t.assigned_tradie %}<span>🔧 {{ t.assigned_tradie.full_name }}</span>{% endif %}
         </div>

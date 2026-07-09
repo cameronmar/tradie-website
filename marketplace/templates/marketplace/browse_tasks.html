@@ -99,7 +99,7 @@
         {% for task in tasks %}
         <a href="{% url 'task_detail' task.pk %}" class="tc">
           <div>
-            <div class="tc-cat">{{ task.get_category_display }}</div>
+            <div class="tc-cat">{{ task.category_label }}</div>
             <div class="tc-title">{{ task.title }}</div>
             <div class="tc-desc">{{ task.description }}</div>
             <div class="tc-meta">

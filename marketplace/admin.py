@@ -822,6 +822,42 @@ class PlatformNoticeAdmin(admin.ModelAdmin):
             obj.sent_by = request.user
         super().save_model(request, obj, form, change)
 
+        if change:
+            return  # only deliver on initial creation, not on later edits
+
+        if obj.channel == PlatformNotice.CHANNEL_EMAIL:
+            if not obj.recipient.email:
+                self.message_user(
+                    request, f'{obj.recipient} has no email address on file — nothing was sent.',
+                    level=messages.WARNING,
+                )
+                return
+            from django.conf import settings as django_settings
+            from django.core.mail import send_mail
+            try:
+                send_mail(
+                    obj.subject, obj.body,
+                    getattr(django_settings, 'DEFAULT_FROM_EMAIL', 'noreply@coconutwireless.fj'),
+                    [obj.recipient.email],
+                    fail_silently=False,
+                )
+                self.message_user(request, f'Notice emailed to {obj.recipient.email}.')
+            except Exception as exc:
+                try:
+                    import sentry_sdk
+                    sentry_sdk.capture_exception(exc)
+                except ImportError:
+                    pass
+                self.message_user(
+                    request,
+                    f'Notice was saved but the email to {obj.recipient.email} failed to send (mail server issue).',
+                    level=messages.WARNING,
+                )
+        elif obj.channel == PlatformNotice.CHANNEL_IN_PLATFORM:
+            self.message_user(request, f'In-app notice saved — {obj.recipient} will see it under their Notices page.')
+        else:
+            self.message_user(request, 'Notice saved (SMS channel is logged only — send it manually).')
+
 
 # ── Sponsor / Ad Banner ───────────────────────────────────────────────────────
 
