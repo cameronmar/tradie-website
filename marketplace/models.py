@@ -643,7 +643,7 @@ class Invoice(models.Model):
     @property
     def is_overdue(self):
         from django.utils import timezone
-        return self.status in (self.STATUS_SENT, self.STATUS_OVERDUE) and self.due_date < timezone.now().date()
+        return self.status in (self.STATUS_SENT, self.STATUS_OVERDUE) and self.due_date < timezone.localdate()
 
     def void(self):
         """Void the invoice and return any invoiced PlatformFees to pending (unless already paid)."""
@@ -744,7 +744,7 @@ class Sponsor(models.Model):
     def get_active_for_placement(cls, placement):
         """Get active sponsors for a specific placement."""
         from django.utils import timezone
-        today = timezone.now().date()
+        today = timezone.localdate()
         return cls.objects.filter(
             active=True,
             placement=placement,
@@ -830,12 +830,14 @@ class PlatformCircumventionCase(models.Model):
 # ── Platform Notice (admin-issued communications) ────────────────────────────
 
 class PlatformNotice(models.Model):
+    TYPE_WELCOME           = 'welcome'
     TYPE_INVOICE           = 'invoice'
     TYPE_PAYMENT_REMINDER  = 'payment_reminder'
     TYPE_CIRCUMVENTION     = 'circumvention'
     TYPE_TERMS_UPDATE      = 'terms_update'
     TYPE_GENERAL           = 'general'
     TYPE_CHOICES = [
+        (TYPE_WELCOME,          'Welcome Message'),
         (TYPE_INVOICE,          'Invoice Notice'),
         (TYPE_PAYMENT_REMINDER, 'Payment Reminder'),
         (TYPE_CIRCUMVENTION,    'Platform Circumvention Notice'),

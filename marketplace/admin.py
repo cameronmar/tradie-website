@@ -469,7 +469,7 @@ class OverdueInvoiceFilter(admin.SimpleListFilter):
 
     def queryset(self, request, queryset):
         if self.value() == 'yes':
-            today = timezone.now().date()
+            today = timezone.localdate()
             return queryset.filter(status__in=[Invoice.STATUS_SENT, Invoice.STATUS_OVERDUE], due_date__lt=today)
         return queryset
 
@@ -519,11 +519,20 @@ class InvoiceAdmin(admin.ModelAdmin):
 
     def send_invoices_action(self, request, queryset):
         sent = 0
+        email_failures = 0
         for invoice in queryset.exclude(status=Invoice.STATUS_VOID):
-            send_invoice_notifications(invoice)
+            if not send_invoice_notifications(invoice):
+                email_failures += 1
             sent += 1
         if sent:
             self.message_user(request, f'Sent {sent} invoice(s) to provider(s).')
+            if email_failures:
+                self.message_user(
+                    request,
+                    f'{email_failures} invoice email(s) failed to send (mail server issue). '
+                    f'Invoices are still marked sent — in-platform and SMS log notices were created.',
+                    level=messages.WARNING,
+                )
         else:
             self.message_user(request, 'No invoices were sent.', level=messages.WARNING)
     send_invoices_action.short_description = 'Send selected invoices to provider'
@@ -552,8 +561,14 @@ class InvoiceAdmin(admin.ModelAdmin):
         if invoice.status == Invoice.STATUS_VOID:
             messages.error(request, 'Cannot send a voided invoice.')
         else:
-            send_invoice_notifications(invoice)
+            email_sent = send_invoice_notifications(invoice)
             messages.success(request, f'Invoice {invoice.invoice_number} sent to {invoice.tradie.full_name}.')
+            if not email_sent:
+                messages.warning(
+                    request,
+                    f'The email to {invoice.tradie.email} failed to send (mail server issue). '
+                    f'The invoice is still marked sent — in-platform and SMS log notices were created.',
+                )
         return redirect(reverse('admin:marketplace_invoice_change', args=[invoice.pk]))
 
     def void_invoice_view(self, request, object_id):
@@ -826,7 +841,7 @@ class SponsorAdmin(admin.ModelAdmin):
 
     def is_active_display(self, obj):
         from django.utils import timezone
-        today = timezone.now().date()
+        today = timezone.localdate()
         if obj.active and obj.start_date <= today <= obj.end_date:
             return '✅ ACTIVE'
         return '❌'

@@ -7,7 +7,8 @@ from django.utils import timezone
 from django.db import transaction
 
 from .models import (
-    PlatformSettings, PlatformFee, Invoice, InvoiceLine, InvoiceNotification, Quote, Task
+    PlatformSettings, PlatformFee, Invoice, InvoiceLine, InvoiceNotification, Quote, Task,
+    PlatformNotice, User,
 )
 
 
@@ -298,7 +299,7 @@ def create_invoice_with_lines(tradie, period_start, period_end, fee_ids, manual_
             period_end=period_end,
             total_amount=Decimal('0'),
             status=Invoice.STATUS_DRAFT,
-            due_date=timezone.now().date() + timedelta(days=due_days),
+            due_date=timezone.localdate() + timedelta(days=due_days),
         )
 
         for fee in fees:
@@ -339,6 +340,11 @@ def send_invoice_notifications(invoice):
     Mark the invoice as sent and notify the provider via in-platform message,
     email, and an SMS log entry (no SMS gateway required — admin can send the
     SMS manually using the logged text).
+
+    Returns True if the email was delivered (or there was no address to send
+    to), False if the email attempt failed. The invoice is still marked sent
+    and the in-platform/SMS log entries are still created either way — a mail
+    server outage shouldn't block the admin from progressing an invoice.
     """
     from django.conf import settings as django_settings
     from django.core.mail import send_mail
@@ -381,13 +387,23 @@ def send_invoice_notifications(invoice):
         subject=subject, body=body,
     )
 
+    email_sent = True
     if tradie.email:
-        send_mail(
-            subject, body,
-            getattr(django_settings, 'DEFAULT_FROM_EMAIL', 'noreply@coconutwireless.fj'),
-            [tradie.email],
-            fail_silently=not getattr(django_settings, 'IS_PRODUCTION', False),
-        )
+        try:
+            send_mail(
+                subject, body,
+                getattr(django_settings, 'DEFAULT_FROM_EMAIL', 'noreply@coconutwireless.fj'),
+                [tradie.email],
+                fail_silently=False,
+            )
+        except Exception as exc:
+            email_sent = False
+            try:
+                import sentry_sdk
+                sentry_sdk.capture_exception(exc)
+            except ImportError:
+                pass
+
     InvoiceNotification.objects.create(
         invoice=invoice, recipient=tradie, channel=InvoiceNotification.CHANNEL_EMAIL,
         subject=subject, body=body,
@@ -401,6 +417,8 @@ def send_invoice_notifications(invoice):
     invoice.status = Invoice.STATUS_SENT
     invoice.sent_at = timezone.now()
     invoice.save(update_fields=['status', 'sent_at'])
+
+    return email_sent
 
     return invoice
 
@@ -426,7 +444,7 @@ def create_weekly_invoices(period_start, period_end):
 def generate_invoice_number(tradie):
     """Generate a unique invoice number."""
     from django.utils import timezone
-    today = timezone.now().date()
+    today = timezone.localdate()
     tradie_id = str(tradie.id).zfill(5)
     date_str = today.strftime('%Y%m%d')
     # Format: INV-20260610-00123-001 (date-tradie_id-sequence)
@@ -441,8 +459,8 @@ def is_tradie_payment_restricted(tradie):
     """
     from django.utils import timezone
     from datetime import timedelta
-    
-    today = timezone.now().date()
+
+    today = timezone.localdate()
     cutoff_date = today - timedelta(days=14)
     
     overdue_old = Invoice.objects.filter(
@@ -465,7 +483,7 @@ def get_tradie_unpaid_invoices(tradie):
 def get_tradie_billing_summary(tradie):
     """Get billing summary for tradie dashboard."""
     from django.utils import timezone
-    today = timezone.now().date()
+    today = timezone.localdate()
     week_ago = today - timedelta(days=7)
     
     # Current week fees (pending/invoiced)
@@ -494,3 +512,49 @@ def get_tradie_billing_summary(tradie):
         'is_payment_restricted': is_restricted,
         'unpaid_invoices': unpaid_invoices,
     }
+
+
+def send_welcome_notice(user):
+    """
+    Send a welcome email to a newly registered user and log it as a PlatformNotice
+    for admin visibility. Best-effort only — registration must succeed even if the
+    email fails to send, so failures here are swallowed rather than raised.
+    """
+    from django.conf import settings as django_settings
+    from django.core.mail import send_mail
+
+    if user.role == User.ROLE_TRADIE:
+        subject = 'Welcome to Coconut Wireless — you are set up as a Local Pro'
+        body = (
+            f'Bula {user.first_name},\n\n'
+            f'Welcome to Coconut Wireless! Your local pro account has been created.\n\n'
+            f'Your documents are now pending review — once verified, you can start '
+            f'quoting on tasks posted by clients across Fiji.\n\n'
+            f'In the meantime, you can complete your profile and browse open tasks '
+            f'in your service towns from your dashboard.\n\n'
+            f'Vinaka,\nCoconut Wireless Team'
+        )
+    else:
+        subject = 'Welcome to Coconut Wireless'
+        body = (
+            f'Bula {user.first_name},\n\n'
+            f'Welcome to Coconut Wireless! Your client account is ready.\n\n'
+            f'Post your first task to get quotes from trusted local pros in your area.\n\n'
+            f'Vinaka,\nCoconut Wireless Team'
+        )
+
+    PlatformNotice.objects.create(
+        recipient=user,
+        notice_type=PlatformNotice.TYPE_WELCOME,
+        channel=PlatformNotice.CHANNEL_EMAIL,
+        subject=subject,
+        body=body,
+    )
+
+    if user.email:
+        send_mail(
+            subject, body,
+            getattr(django_settings, 'DEFAULT_FROM_EMAIL', 'noreply@coconutwireless.fj'),
+            [user.email],
+            fail_silently=True,
+        )

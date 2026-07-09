@@ -55,6 +55,7 @@ from .utils import (
     create_platform_fee_for_task,
     get_active_platform_settings,
     get_tradie_billing_summary,
+    send_welcome_notice,
 )
 
 
@@ -161,6 +162,7 @@ def register_client(request):
             user_agent=request.META.get('HTTP_USER_AGENT', ''),
         )
         login(request, user)
+        send_welcome_notice(user)
         flash.success(request, f'Bula, {user.first_name}! Your client account is ready.')
         return redirect('client_dashboard')
     return render(request, 'marketplace/register_client.html', {
@@ -186,6 +188,7 @@ def register_tradie(request):
             accepted_invoicing_terms=form.cleaned_data.get('accepted_invoicing_terms', False),
         )
         login(request, user)
+        send_welcome_notice(user)
         flash.success(request, f'Bula, {user.first_name}! Your local pro account is created and pending document verification.')
         return redirect('tradie_dashboard')
     return render(request, 'marketplace/register_tradie.html', {
