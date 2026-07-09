@@ -1,5 +1,5 @@
 {% extends "marketplace/base.html" %}
-{% block title %}Provider Sign Up – Coconut Wireless{% endblock %}
+{% block title %}Local Pro Sign Up – Coconut Wireless{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -33,12 +33,12 @@
 {% block content %}
 <div class="container reg-page">
   <div class="reg-wrap">
-    <h1>Join as a Provider / Local Pro</h1>
+    <h1>Join as a Local Pro</h1>
     <p class="sub">Looking to hire? <a href="{% url 'register_client' %}">Sign up as a client</a> &nbsp;|&nbsp; Already have an account? <a href="{% url 'login' %}">Log in</a></p>
     <div class="info-band">✅ Free to join · Get notified of jobs near you · Only pay when you win work</div>
     {% if closed_beta_enabled and beta_gate_tradies %}
     <div class="info-band" style="background:#fffaf0;color:#7a4f00;border:1px solid #ffe2a8;">
-      Closed beta access is invite-only. Use your approved email to register as a provider.
+      Closed beta access is invite-only. Use your approved email to register as a local pro.
     </div>
     {% endif %}
 
@@ -175,7 +175,7 @@
       </div>
       {% for e in form.accepted_invoicing_terms.errors %}<div class="field-error" style="margin-bottom:8px;">{{ e }}</div>{% endfor %}
 
-      <button type="submit" class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem;">Create provider account →</button>
+      <button type="submit" class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem;">Create local pro account →</button>
     </form>
   </div>
 </div>

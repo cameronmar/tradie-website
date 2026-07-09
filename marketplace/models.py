@@ -234,8 +234,8 @@ class Task(models.Model):
     ])
     materials_responsibility = models.CharField(max_length=50, blank=True, choices=[
         ('client_will_supply', 'Client will supply materials'),
-        ('provider_should_supply', 'Provider should supply materials'),
-        ('provider_to_advise_after_inspection', 'Provider should advise after inspection'),
+        ('provider_should_supply', 'Local pro should supply materials'),
+        ('provider_to_advise_after_inspection', 'Local pro should advise after inspection'),
         ('not_applicable', 'Not applicable'),
         ('not_sure', 'Not sure'),
     ])

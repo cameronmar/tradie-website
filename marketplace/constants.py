@@ -160,7 +160,7 @@ PRIVATE_REVIEW_CRITERIA = [
         'field': 'conduct',
         'label': 'Conduct on Site',
         'descriptors': [
-            (5, 'Respectful, professional, made tradie feel welcome'),
+            (5, 'Respectful, professional, made local pro feel welcome'),
             (4, 'Friendly and courteous throughout'),
             (3, 'Neutral; no issues but not particularly supportive'),
             (2, 'Dismissive or interfering; created friction'),

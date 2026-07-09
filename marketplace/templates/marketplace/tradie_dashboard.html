@@ -1,5 +1,5 @@
 {% extends "marketplace/base.html" %}
-{% block title %}Tradie Dashboard – Coconut Wireless{% endblock %}
+{% block title %}Local Pro Dashboard – Coconut Wireless{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -42,7 +42,7 @@ footer{display:none;}
     <div class="sb-user">
       <div class="sb-av">{{ user.initials }}</div>
       <div class="sb-name">{{ user.first_name }} {{ user.last_name }}</div>
-      <div class="sb-role">Tradie · {{ user.town }}</div>
+      <div class="sb-role">Local Pro · {{ user.town }}</div>
     </div>
     <div class="sb-lbl">Work</div>
     <a href="{% url 'tradie_dashboard' %}" class="sb-link active"><span class="icon">🏠</span>Dashboard</a>
@@ -75,7 +75,7 @@ footer{display:none;}
     {% if not tradie_is_approved %}
     <div class="card" style="margin-bottom:18px;border:1px solid #ffe2a8;background:#fffaf0;">
       <strong>Verification in progress.</strong>
-      Your provider account is not approved yet, so quoting and appointment requests are temporarily disabled.
+      Your local pro account is not approved yet, so quoting and appointment requests are temporarily disabled.
     </div>
     {% endif %}
 

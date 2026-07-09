@@ -144,7 +144,7 @@
             {% endif %}
             {% if user.is_authenticated %}
               {% if user == task.client %}
-                <a href="{% url 'conversation' task.pk appointment.provider.pk %}" class="btn btn-outline-blue btn-sm">Message provider</a>
+                <a href="{% url 'conversation' task.pk appointment.provider.pk %}" class="btn btn-outline-blue btn-sm">Message local pro</a>
               {% elif user == appointment.provider %}
                 <a href="{% url 'conversation' task.pk task.client.pk %}" class="btn btn-outline-blue btn-sm">Message client</a>
               {% endif %}
@@ -211,7 +211,7 @@
         {% if user.is_authenticated and user.role == 'tradie' and not tradie_can_participate and task.status == 'open' %}
         <div class="sect-card">
           <div class="action-banner" style="margin:0;">
-            Your provider account is pending approval. Quoting and appointment requests are disabled until verification is complete.
+            Your local pro account is pending approval. Quoting and appointment requests are disabled until verification is complete.
           </div>
         </div>
         {% endif %}
@@ -296,14 +296,14 @@
               {% if task.meals_provided %}<li>Meals or refreshments provided</li>{% endif %}
               {% if task.parking_available_flag %}<li>Parking available</li>{% endif %}
               {% if task.site_access_available %}<li>Site access available</li>{% endif %}
-              {% if task.tools_required %}<li>Tools/equipment required from provider</li>{% endif %}
+              {% if task.tools_required %}<li>Tools/equipment required from local pro</li>{% endif %}
               {% if task.rubbish_removal_required %}<li>Rubbish/disposal removal required</li>{% endif %}
               {% if task.after_hours_required %}<li>After-hours or weekend work required</li>{% endif %}
               {% if task.on_site_inspection_required %}<li>On-site quote / inspection required</li>{% endif %}
               {% if task.delivery_required %}<li>Delivery or transport required</li>{% endif %}
               {% if task.clean_up_required %}<li>Clean-up after job required</li>{% endif %}
               {% if task.client_provide_photos %}<li>Client will provide photos/details before quote</li>{% endif %}
-              {% if task.warranty_followup_requested %}<li>Provider should include warranty/follow-up if applicable</li>{% endif %}
+              {% if task.warranty_followup_requested %}<li>Local pro should include warranty/follow-up if applicable</li>{% endif %}
             </ul>
             {% if task.materials_notes %}<div style="margin-top:8px;"><strong>Materials notes:</strong> {{ task.materials_notes }}</div>{% endif %}
             {% if task.parking_notes %}<div><strong>Parking notes:</strong> {{ task.parking_notes }}</div>{% endif %}

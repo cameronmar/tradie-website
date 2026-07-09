@@ -76,20 +76,20 @@ def _require_approved_tradie(request):
     if not request.user.is_authenticated:
         raise PermissionDenied
     if request.user.role != User.ROLE_TRADIE:
-        flash.error(request, 'Only provider accounts can access this action.')
+        flash.error(request, 'Only local pro accounts can access this action.')
         return redirect('dashboard')
     profile = _get_tradie_profile(request.user)
     if not profile:
-        flash.warning(request, 'Your provider profile could not be found. Please contact support.')
+        flash.warning(request, 'Your local pro profile could not be found. Please contact support.')
         return redirect('tradie_dashboard')
     if profile.verification_status == TradieProfile.VERIFICATION_PENDING:
-        flash.warning(request, 'Your provider account is pending verification. You can browse, but quoting is disabled.')
+        flash.warning(request, 'Your local pro account is pending verification. You can browse, but quoting is disabled.')
         return redirect('tradie_dashboard')
     if profile.verification_status == TradieProfile.VERIFICATION_REJECTED:
-        flash.error(request, 'Your provider account verification was rejected. Please contact support.')
+        flash.error(request, 'Your local pro account verification was rejected. Please contact support.')
         return redirect('tradie_dashboard')
     if profile.verification_status == TradieProfile.VERIFICATION_SUSPENDED:
-        flash.error(request, 'Your provider account is suspended. Please contact support.')
+        flash.error(request, 'Your local pro account is suspended. Please contact support.')
         return redirect('tradie_dashboard')
     return None
 
@@ -186,7 +186,7 @@ def register_tradie(request):
             accepted_invoicing_terms=form.cleaned_data.get('accepted_invoicing_terms', False),
         )
         login(request, user)
-        flash.success(request, f'Bula, {user.first_name}! Your provider account is created and pending document verification.')
+        flash.success(request, f'Bula, {user.first_name}! Your local pro account is created and pending document verification.')
         return redirect('tradie_dashboard')
     return render(request, 'marketplace/register_tradie.html', {
         'form': form,
@@ -343,7 +343,7 @@ def post_task(request):
         task = form.save(commit=False)
         task.client = request.user
         task.save()
-        flash.success(request, 'Task posted! Tradies will start sending quotes soon.')
+        flash.success(request, 'Task posted! Local pros will start sending quotes soon.')
         return redirect('task_detail', pk=task.pk)
     return render(request, 'marketplace/post_task.html', {
         'form': form,
@@ -530,7 +530,7 @@ def accept_quoting_appointment_slot(request, pk, appt_pk, slot_pk):
     appointment.slots.update(is_selected=False)
     slot.is_selected = True
     slot.save()
-    flash.success(request, 'Quoting appointment confirmed. Your provider will see the accepted slot.')
+    flash.success(request, 'Quoting appointment confirmed. Your local pro will see the accepted slot.')
     return redirect('task_detail', pk=pk)
 
 
@@ -541,7 +541,7 @@ def decline_quoting_appointment(request, pk, appt_pk):
     appointment = get_object_or_404(QuotingAppointment, pk=appt_pk, task=task, status=QuotingAppointment.STATUS_REQUESTED)
     appointment.status = QuotingAppointment.STATUS_DECLINED
     appointment.save()
-    flash.success(request, 'You declined the appointment request. The provider can send a new request if needed.')
+    flash.success(request, 'You declined the appointment request. The local pro can send a new request if needed.')
     return redirect('task_detail', pk=pk)
 
 
@@ -603,7 +603,7 @@ def rate_tradie(request, pk):
         flash.info(request, 'You have already reviewed this job.')
         return redirect('task_detail', pk=pk)
     if not task.assigned_tradie:
-        flash.error(request, 'This task has no assigned provider to review.')
+        flash.error(request, 'This task has no assigned local pro to review.')
         return redirect('task_detail', pk=pk)
     form = PublicReviewForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
