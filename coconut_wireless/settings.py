@@ -152,6 +152,13 @@ if IS_PRODUCTION and OBJECT_STORAGE_BACKEND != 's3':
     raise ImproperlyConfigured('OBJECT_STORAGE_BACKEND must be set to "s3" in production.')
 
 if OBJECT_STORAGE_BACKEND == 's3':
+    # botocore defaults to adding CRC32 request/response checksums on S3 calls,
+    # which non-AWS S3-compatible providers (Cloudflare R2 included) reject with
+    # a 400 Bad Request on basic operations like HeadObject. Disable unless AWS
+    # itself requires it. Uses setdefault so a real env var still wins.
+    os.environ.setdefault('AWS_REQUEST_CHECKSUM_CALCULATION', 'when_required')
+    os.environ.setdefault('AWS_RESPONSE_CHECKSUM_VALIDATION', 'when_required')
+
     AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME', '').strip()
     AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', '').strip() or None
     AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL', '').strip() or None
