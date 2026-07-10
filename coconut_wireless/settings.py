@@ -162,6 +162,9 @@ if OBJECT_STORAGE_BACKEND == 's3':
     AWS_QUERYSTRING_AUTH = _get_bool_env('AWS_QUERYSTRING_AUTH', True)
     AWS_QUERYSTRING_EXPIRE = int(os.environ.get('AWS_QUERYSTRING_EXPIRE', '3600'))
     AWS_S3_FILE_OVERWRITE = False
+    # Non-AWS S3-compatible providers (R2, MinIO, Railway's own bucket, etc.) usually
+    # need path-style addressing rather than boto3's AWS-default virtual-hosted style.
+    AWS_S3_ADDRESSING_STYLE = os.environ.get('AWS_S3_ADDRESSING_STYLE', '').strip() or None
 
     required_s3_vars = ('AWS_STORAGE_BUCKET_NAME', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY')
     missing_s3_vars = [name for name in required_s3_vars if not os.environ.get(name, '').strip()]
