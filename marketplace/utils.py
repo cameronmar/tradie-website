@@ -398,6 +398,9 @@ def send_invoice_notifications(invoice):
             )
         except Exception as exc:
             email_sent = False
+            import traceback
+            print(f'send_invoice_notifications: email send failed: {exc!r}')
+            traceback.print_exc()
             try:
                 import sentry_sdk
                 sentry_sdk.capture_exception(exc)
