@@ -843,9 +843,11 @@ class PlatformNoticeAdmin(admin.ModelAdmin):
                 )
                 self.message_user(request, f'Notice emailed to {obj.recipient.email}.')
             except Exception as exc:
+                import sys
                 import traceback
-                print(f'PlatformNoticeAdmin: email send failed: {exc!r}')
+                print(f'PlatformNoticeAdmin: email send failed: {exc!r}', flush=True)
                 traceback.print_exc()
+                sys.stderr.flush()
                 try:
                     import sentry_sdk
                     sentry_sdk.capture_exception(exc)

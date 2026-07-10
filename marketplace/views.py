@@ -181,9 +181,11 @@ def register_tradie(request):
         try:
             user = form.save()
         except Exception as exc:
+            import sys
             import traceback
-            print(f'register_tradie: form.save() failed: {exc!r}')
+            print(f'register_tradie: form.save() failed: {exc!r}', flush=True)
             traceback.print_exc()
+            sys.stderr.flush()
             try:
                 import sentry_sdk
                 sentry_sdk.capture_exception(exc)
