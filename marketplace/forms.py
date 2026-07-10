@@ -1,6 +1,7 @@
 from django import forms
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.db import transaction
 
 from .constants import TOWN_CHOICES, EXPERIENCE_CHOICES
 from .models import User, TradieProfile, Task, Quote, Message, TradeCategory, TaskPhoto
@@ -132,29 +133,30 @@ class TradieRegistrationForm(forms.Form):
 
     def save(self):
         cd = self.cleaned_data
-        user = User.objects.create_user(
-            email=cd['email'],
-            password=cd['password'],
-            first_name=cd['first_name'],
-            last_name=cd['last_name'],
-            mobile=cd['mobile'],
-            town=cd['town'],
-            role=User.ROLE_TRADIE,
-        )
-        profile = TradieProfile(
-            user=user,
-            business_name=cd.get('business_name', ''),
-            tin=cd.get('tin', ''),
-            years_experience=cd.get('years_experience', ''),
-            bio=cd.get('bio', ''),
-            trades=list(cd.get('trades', [])),
-            service_towns=list(cd.get('service_towns', [])),
-        )
-        for field in ('tin_letter', 'business_licence', 'public_liability_insurance',
-                      'electrical_contractors_licence', 'plumber_licence'):
-            if cd.get(field):
-                setattr(profile, field, cd[field])
-        profile.save()
+        with transaction.atomic():
+            user = User.objects.create_user(
+                email=cd['email'],
+                password=cd['password'],
+                first_name=cd['first_name'],
+                last_name=cd['last_name'],
+                mobile=cd['mobile'],
+                town=cd['town'],
+                role=User.ROLE_TRADIE,
+            )
+            profile = TradieProfile(
+                user=user,
+                business_name=cd.get('business_name', ''),
+                tin=cd.get('tin', ''),
+                years_experience=cd.get('years_experience', ''),
+                bio=cd.get('bio', ''),
+                trades=list(cd.get('trades', [])),
+                service_towns=list(cd.get('service_towns', [])),
+            )
+            for field in ('tin_letter', 'business_licence', 'public_liability_insurance',
+                          'electrical_contractors_licence', 'plumber_licence'):
+                if cd.get(field):
+                    setattr(profile, field, cd[field])
+            profile.save()
         return user
 
 

@@ -178,7 +178,26 @@ def register_tradie(request):
         return redirect('dashboard')
     form = TradieRegistrationForm(request.POST or None, request.FILES or None)
     if request.method == 'POST' and form.is_valid():
-        user = form.save()
+        try:
+            user = form.save()
+        except Exception as exc:
+            try:
+                import sentry_sdk
+                sentry_sdk.capture_exception(exc)
+            except ImportError:
+                pass
+            flash.error(
+                request,
+                'Something went wrong creating your account (likely a document upload issue). '
+                'Please try again — if it keeps failing, contact support.',
+            )
+            return render(request, 'marketplace/register_tradie.html', {
+                'form': form,
+                'trade_choices': TradeCategory.get_choices(),
+                'town_choices': TOWN_CHOICES,
+                'closed_beta_enabled': settings.CLOSED_BETA_ENABLED,
+                'beta_gate_tradies': settings.BETA_GATE_TRADIE_SIGNUPS,
+            })
         settings_obj = PlatformSettings.get_active()
         TermsAcceptance.objects.create(
             user=user,
