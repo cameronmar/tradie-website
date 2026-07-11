@@ -172,15 +172,16 @@ class TaskForm(forms.ModelForm):
         choices=[], required=False, widget=forms.Select(attrs={'class': 'form-input'})
     )
     categories = forms.ModelMultipleChoiceField(
-        queryset=TradeCategory.objects.all(),
+        queryset=TradeCategory.objects.filter(active=True).order_by('name'),
         widget=forms.CheckboxSelectMultiple,
         required=False,
-        label='Job Categories (select one or more)'
+        label='Additional categories (optional — for bigger jobs spanning multiple trades)',
     )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['category'].choices = TradeCategory.get_choices()
+        self.fields['categories'].label_from_instance = lambda obj: f'{obj.icon} {obj.name}'.strip()
 
     class Meta:
         model  = Task

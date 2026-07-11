@@ -5,6 +5,7 @@ Private reviews are labelled clearly as dispute records.
 from datetime import datetime
 from decimal import Decimal
 
+from django import forms
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.db.models import Q
@@ -866,19 +867,37 @@ class PlatformNoticeAdmin(admin.ModelAdmin):
 
 # ── Sponsor / Ad Banner ───────────────────────────────────────────────────────
 
+class SponsorAdminForm(forms.ModelForm):
+    placements = forms.MultipleChoiceField(
+        choices=Sponsor.PLACEMENT_CHOICES,
+        widget=forms.CheckboxSelectMultiple,
+        required=True,
+        label='Placements (select one or more pages to display this ad)',
+    )
+
+    class Meta:
+        model = Sponsor
+        fields = '__all__'
+
+
 @admin.register(Sponsor)
 class SponsorAdmin(admin.ModelAdmin):
-    list_display = ['business_name', 'placement', 'start_date', 'end_date', 'active', 'is_active_display']
-    list_filter = ['placement', 'active', 'start_date', 'end_date']
+    form = SponsorAdminForm
+    list_display = ['business_name', 'placements_display', 'start_date', 'end_date', 'active', 'is_active_display']
+    list_filter = ['active', 'start_date', 'end_date']
     search_fields = ['business_name', 'destination_url']
     readonly_fields = ['created_at']
     fieldsets = (
         ('Sponsor Details', {'fields': ('business_name', 'destination_url', 'banner_image')}),
-        ('Placement', {'fields': ('placement',)}),
+        ('Placement', {'fields': ('placements',)}),
         ('Schedule', {'fields': ('start_date', 'end_date', 'active')}),
         ('Timestamps', {'fields': ('created_at',)}),
     )
     date_hierarchy = 'created_at'
+
+    def placements_display(self, obj):
+        return ', '.join(obj.placements)
+    placements_display.short_description = 'Placements'
 
     def is_active_display(self, obj):
         from django.utils import timezone

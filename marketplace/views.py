@@ -371,6 +371,7 @@ def post_task(request):
         task = form.save(commit=False)
         task.client = request.user
         task.save()
+        form.save_m2m()
         flash.success(request, 'Task posted! Local pros will start sending quotes soon.')
         return redirect('task_detail', pk=task.pk)
     return render(request, 'marketplace/post_task.html', {

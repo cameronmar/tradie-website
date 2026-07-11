@@ -284,6 +284,9 @@
         <h3>Task summary</h3>
         <div class="det-row"><span class="lbl">Status</span><span class="chip chip-{{ task.status }}">{{ task.get_status_display }}</span></div>
         <div class="det-row"><span class="lbl">Category</span><span>{{ task.category_label }}</span></div>
+        {% if task.categories.all %}
+        <div class="det-row"><span class="lbl">Also relevant to</span><span>{% for c in task.categories.all %}{{ c.icon }} {{ c.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</span></div>
+        {% endif %}
         <div class="det-row"><span class="lbl">Town</span><span>{{ task.town }}</span></div>
         <div class="det-row"><span class="lbl">Budget</span><span class="fw-bold text-blue">FJD ${{ task.budget }}</span></div>
         <div class="det-row"><span class="lbl">Quotes</span><span>{{ task.quote_count }}</span></div>

@@ -754,7 +754,7 @@ class Sponsor(models.Model):
     business_name  = models.CharField(max_length=200)
     banner_image   = models.ImageField(upload_to='sponsors/')
     destination_url = models.URLField()
-    placement      = models.CharField(max_length=50, choices=PLACEMENT_CHOICES)
+    placements     = models.JSONField(default=list)  # list of placement slugs; can span multiple pages
     start_date     = models.DateField()
     end_date       = models.DateField()
     active         = models.BooleanField(default=True)
@@ -766,19 +766,24 @@ class Sponsor(models.Model):
         verbose_name_plural = 'Sponsors / Ad Banners'
 
     def __str__(self):
-        return f'{self.business_name} – {self.placement}'
+        return f'{self.business_name} – {", ".join(self.placements)}'
 
     @classmethod
     def get_active_for_placement(cls, placement):
-        """Get active sponsors for a specific placement."""
+        """
+        Get active sponsors that include the given placement among their pages.
+        Filtered in Python rather than via a JSONField `contains` lookup, since
+        that lookup isn't supported on SQLite (only Postgres/MySQL) — this way
+        works identically on both local dev and production.
+        """
         from django.utils import timezone
         today = timezone.localdate()
-        return cls.objects.filter(
+        candidates = cls.objects.filter(
             active=True,
-            placement=placement,
             start_date__lte=today,
             end_date__gte=today,
         )
+        return [s for s in candidates if placement in s.placements]
 
 
 # ── Terms Acceptance ─────────────────────────────────────────────────────────────
