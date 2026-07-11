@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
@@ -104,6 +106,14 @@ class TradieProfile(models.Model):
     )
     documents_verified            = models.BooleanField(default=False, verbose_name='Documents verified by admin')
     verification_notes            = models.TextField(blank=True, verbose_name='Verification notes (admin only)')
+
+    # Founding member program — first 20 tradies get a badge + FJD $200 platform
+    # fee credit, spent down automatically as their jobs complete.
+    is_founding_member             = models.BooleanField(default=False, verbose_name='Founding member')
+    founding_member_credit_balance = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal('0.00'),
+        verbose_name='Founding member credit balance (FJD)',
+    )
 
     def __str__(self):
         return f'{self.user} – Tradie Profile'
@@ -380,6 +390,11 @@ class Quote(models.Model):
     ])
     warranty_or_followup_included   = models.BooleanField(default=False)
     created_at                      = models.DateTimeField(auto_now_add=True)
+    # Discount selected at quote time — actually applied (and consumed) when the
+    # job completes and a real PlatformFee is created. Mutually exclusive.
+    used_founding_credit            = models.BooleanField(default=False)
+    promo_code                      = models.ForeignKey('PromoCode', null=True, blank=True, on_delete=models.SET_NULL, related_name='quotes')
+    estimated_discount_amount       = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
 
     class Meta:
         unique_together = ('task', 'tradie')
@@ -552,6 +567,62 @@ class TaskPhoto(models.Model):
         return f'Photo for {self.task}'
 
 
+# ── Promo Codes ────────────────────────────────────────────────────────────────
+
+class PromoCode(models.Model):
+    """
+    Admin-issued discount codes a tradie can apply to a quote, reducing the
+    platform fee charged when that job completes. Mutually exclusive with a
+    tradie's own founding-member credit — only one discount applies per quote.
+    """
+    DISCOUNT_FIXED   = 'fixed'
+    DISCOUNT_PERCENT = 'percent'
+    DISCOUNT_TYPE_CHOICES = [
+        (DISCOUNT_FIXED,   'Fixed amount off (FJD)'),
+        (DISCOUNT_PERCENT, 'Percentage off'),
+    ]
+
+    code           = models.CharField(max_length=30, unique=True)
+    discount_type  = models.CharField(max_length=10, choices=DISCOUNT_TYPE_CHOICES, default=DISCOUNT_FIXED)
+    discount_value = models.DecimalField(max_digits=10, decimal_places=2, help_text='Dollar amount, or percentage if "Percentage off" is selected.')
+    active         = models.BooleanField(default=True)
+    start_date     = models.DateField(null=True, blank=True, help_text='Leave blank for no start restriction.')
+    end_date       = models.DateField(null=True, blank=True, help_text='Leave blank for no end restriction.')
+    max_uses       = models.PositiveIntegerField(null=True, blank=True, help_text='Leave blank for unlimited uses.')
+    times_used     = models.PositiveIntegerField(default=0)
+    created_at     = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Promo Code'
+        verbose_name_plural = 'Promo Codes'
+
+    def __str__(self):
+        return self.code
+
+    def is_valid_now(self):
+        from django.utils import timezone
+        today = timezone.localdate()
+        if not self.active:
+            return False
+        if self.start_date and today < self.start_date:
+            return False
+        if self.end_date and today > self.end_date:
+            return False
+        if self.max_uses is not None and self.times_used >= self.max_uses:
+            return False
+        return True
+
+    def calculate_discount(self, fee_amount):
+        """Discount amount for a given platform fee, capped so it never exceeds that fee."""
+        fee_amount = Decimal(str(fee_amount))
+        if self.discount_type == self.DISCOUNT_PERCENT:
+            discount = (fee_amount * self.discount_value / Decimal('100')).quantize(Decimal('0.01'))
+        else:
+            discount = self.discount_value
+        return min(discount, fee_amount)
+
+
 # ── Platform Settings (fees) ──────────────────────────────────────────────────
 
 class PlatformSettings(models.Model):
@@ -620,7 +691,9 @@ class PlatformFee(models.Model):
     final_job_value    = models.DecimalField(max_digits=10, decimal_places=2)
     fee_rate           = models.DecimalField(max_digits=5, decimal_places=2)  # Stored for audit trail
     fee_cap            = models.DecimalField(max_digits=10, decimal_places=2)  # Stored for audit trail
-    fee_amount         = models.DecimalField(max_digits=10, decimal_places=2)
+    gross_fee_amount   = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # Before discount
+    discount_amount    = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    fee_amount         = models.DecimalField(max_digits=10, decimal_places=2)  # What's actually owed (after discount)
     status             = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
     created_at         = models.DateTimeField(auto_now_add=True)
 

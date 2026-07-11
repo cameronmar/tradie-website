@@ -35,6 +35,11 @@ EXPERIENCE_CHOICES = [
     ('15+ years',  '15+ years'),
 ]
 
+# Founding member program — the first N tradies to register get a badge and a
+# platform fee credit, spent down automatically as their jobs complete.
+FOUNDING_MEMBER_SLOTS = 20
+FOUNDING_MEMBER_CREDIT = '200.00'
+
 # ──────────────────────────────────────────────────────────────────────
 # PUBLIC review criteria (client → provider).  Shown on provider profile.
 # ──────────────────────────────────────────────────────────────────────

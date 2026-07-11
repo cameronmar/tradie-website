@@ -1,9 +1,11 @@
+from decimal import Decimal
+
 from django import forms
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
-from .constants import TOWN_CHOICES, EXPERIENCE_CHOICES
+from .constants import TOWN_CHOICES, EXPERIENCE_CHOICES, FOUNDING_MEMBER_SLOTS, FOUNDING_MEMBER_CREDIT
 from .models import User, TradieProfile, Task, Quote, Message, TradeCategory, TaskPhoto
 
 
@@ -143,6 +145,7 @@ class TradieRegistrationForm(forms.Form):
                 town=cd['town'],
                 role=User.ROLE_TRADIE,
             )
+            is_founder = TradieProfile.objects.count() < FOUNDING_MEMBER_SLOTS
             profile = TradieProfile(
                 user=user,
                 business_name=cd.get('business_name', ''),
@@ -151,6 +154,8 @@ class TradieRegistrationForm(forms.Form):
                 bio=cd.get('bio', ''),
                 trades=list(cd.get('trades', [])),
                 service_towns=list(cd.get('service_towns', [])),
+                is_founding_member=is_founder,
+                founding_member_credit_balance=Decimal(FOUNDING_MEMBER_CREDIT) if is_founder else Decimal('0.00'),
             )
             for field in ('tin_letter', 'business_licence', 'public_liability_insurance',
                           'electrical_contractors_licence', 'plumber_licence'):
@@ -233,6 +238,10 @@ class TaskPhotoForm(forms.ModelForm):
 # ── Quote form ────────────────────────────────────────────────────────────────
 
 class QuoteForm(forms.ModelForm):
+    # Not model fields directly — resolved/validated against the requesting
+    # tradie's eligibility and the PromoCode table in submit_quote().
+    promo_code_input = forms.CharField(required=False, max_length=30, widget=forms.HiddenInput())
+
     class Meta:
         model  = Quote
         fields = [
@@ -242,10 +251,11 @@ class QuoteForm(forms.ModelForm):
             'large_job_threshold_at_quote_time', 'large_job_fee_rate_at_quote_time',
             'include_platform_fee', 'base_price', 'includes_materials',
             'quote_includes', 'earliest_available_date', 'estimated_job_duration', 'warranty_or_followup_included',
-            'message'
+            'used_founding_credit', 'message'
         ]
         widgets = {
             'minimum_take_home_amount':    forms.NumberInput(attrs={'class': 'form-input', 'placeholder': 'FJD $', 'min': '0', 'step': '0.01', 'id': 'id_minimum_take_home_amount'}),
+            'used_founding_credit':        forms.HiddenInput(),
             'customer_facing_quote':       forms.HiddenInput(),
             'estimated_platform_fee':      forms.HiddenInput(),
             'estimated_provider_take_home': forms.HiddenInput(),

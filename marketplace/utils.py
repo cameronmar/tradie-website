@@ -184,27 +184,52 @@ def calculate_quote_without_platform_fee(quote_total, settings=None):
 
 def create_platform_fee_for_task(task, final_job_value):
     """
-    Create a PlatformFee record when a task is completed.
+    Create a PlatformFee record when a task is completed. Applies (and
+    consumes) any discount selected on the accepted quote — founding member
+    credit or a promo code — capped so it can never exceed the fee itself.
+    Recalculated fresh here rather than trusting the quote-time estimate,
+    since the credit balance or promo validity may have changed since then.
     """
     if not task.assigned_tradie:
         return None
-    
+
     settings = get_active_platform_settings()
     if not settings:
         return None
-    
-    fee_rate, fee_cap, fee_amount = calculate_platform_fee(final_job_value, settings)
-    
-    platform_fee = PlatformFee.objects.create(
-        task=task,
-        tradie=task.assigned_tradie,
-        final_job_value=final_job_value,
-        fee_rate=fee_rate,
-        fee_cap=fee_cap,
-        fee_amount=fee_amount,
-        status=PlatformFee.STATUS_PENDING,
-    )
-    
+
+    fee_rate, fee_cap, gross_fee_amount = calculate_platform_fee(final_job_value, settings)
+
+    with transaction.atomic():
+        discount_amount = Decimal('0.00')
+        accepted_quote = task.quotes.filter(status=Quote.STATUS_ACCEPTED).first()
+        if accepted_quote:
+            if accepted_quote.used_founding_credit:
+                profile = getattr(task.assigned_tradie, 'tradie_profile', None)
+                if profile and profile.is_founding_member and profile.founding_member_credit_balance > 0:
+                    discount_amount = min(profile.founding_member_credit_balance, gross_fee_amount)
+                    profile.founding_member_credit_balance -= discount_amount
+                    profile.save(update_fields=['founding_member_credit_balance'])
+            elif accepted_quote.promo_code_id:
+                promo = accepted_quote.promo_code
+                if promo and promo.is_valid_now():
+                    discount_amount = promo.calculate_discount(gross_fee_amount)
+                    promo.times_used += 1
+                    promo.save(update_fields=['times_used'])
+
+        fee_amount = gross_fee_amount - discount_amount
+
+        platform_fee = PlatformFee.objects.create(
+            task=task,
+            tradie=task.assigned_tradie,
+            final_job_value=final_job_value,
+            fee_rate=fee_rate,
+            fee_cap=fee_cap,
+            gross_fee_amount=gross_fee_amount,
+            discount_amount=discount_amount,
+            fee_amount=fee_amount,
+            status=PlatformFee.STATUS_PENDING,
+        )
+
     return platform_fee
 
 
@@ -521,9 +546,10 @@ def get_tradie_billing_summary(tradie):
 
 def send_welcome_notice(user):
     """
-    Send a welcome email to a newly registered user and log it as a PlatformNotice
-    for admin visibility. Best-effort only — registration must succeed even if the
-    email fails to send, so failures here are swallowed rather than raised.
+    Send a welcome email to a newly registered user and also log an in-platform
+    PlatformNotice so it shows up in their in-app Notices inbox (not just email).
+    Best-effort only — registration must succeed even if the email fails to send,
+    so failures here are swallowed rather than raised.
     """
     from django.conf import settings as django_settings
     from django.core.mail import send_mail
@@ -548,18 +574,40 @@ def send_welcome_notice(user):
             f'Vinaka,\nCoconut Wireless Team'
         )
 
+    # Log an in-platform notice (always — this is what the user sees in their
+    # Notices inbox) and a separate email-channel record for the audit trail,
+    # matching the same per-channel logging pattern as invoice notifications.
     PlatformNotice.objects.create(
         recipient=user,
         notice_type=PlatformNotice.TYPE_WELCOME,
-        channel=PlatformNotice.CHANNEL_EMAIL,
+        channel=PlatformNotice.CHANNEL_IN_PLATFORM,
         subject=subject,
         body=body,
     )
 
     if user.email:
-        send_mail(
-            subject, body,
-            getattr(django_settings, 'DEFAULT_FROM_EMAIL', 'noreply@coconutwireless.fj'),
-            [user.email],
-            fail_silently=True,
-        )
+        try:
+            send_mail(
+                subject, body,
+                getattr(django_settings, 'DEFAULT_FROM_EMAIL', 'noreply@coconutwireless.fj'),
+                [user.email],
+                fail_silently=False,
+            )
+            PlatformNotice.objects.create(
+                recipient=user,
+                notice_type=PlatformNotice.TYPE_WELCOME,
+                channel=PlatformNotice.CHANNEL_EMAIL,
+                subject=subject,
+                body=body,
+            )
+        except Exception as exc:
+            import sys
+            import traceback
+            print(f'send_welcome_notice: email send failed: {exc!r}', flush=True)
+            traceback.print_exc()
+            sys.stderr.flush()
+            try:
+                import sentry_sdk
+                sentry_sdk.capture_exception(exc)
+            except ImportError:
+                pass

@@ -39,6 +39,7 @@ from .models import (
     Message,
     PlatformNotice,
     PlatformSettings,
+    PromoCode,
     PublicReview,
     Quote,
     QuotingAppointment,
@@ -396,10 +397,13 @@ def task_detail(request, pk):
     client_has_rated  = False
     tradie_has_rated  = False
 
+    founding_credit_balance = Decimal('0.00')
     if request.user.is_authenticated:
         u = request.user
         tradie_profile = _get_tradie_profile(u) if u.role == User.ROLE_TRADIE else None
         tradie_is_approved = tradie_profile.is_approved() if tradie_profile else False
+        if tradie_profile and tradie_profile.is_founding_member:
+            founding_credit_balance = tradie_profile.founding_member_credit_balance
         if u.role == User.ROLE_TRADIE and tradie_is_approved and task.status == Task.STATUS_OPEN:
             try:
                 user_quote = quotes.get(tradie=u)
@@ -470,6 +474,8 @@ def task_detail(request, pk):
         'can_message_client': can_message_client,
         'tradie_can_participate': tradie_is_approved,
         'sponsors':        Sponsor.get_active_for_placement('task_detail_sidebar'),
+        'founding_credit_balance': founding_credit_balance,
+        'check_promo_code_url': reverse('check_promo_code', args=[task.pk]),
     })
 
 
@@ -492,6 +498,27 @@ def submit_quote(request, pk):
         q.customer_facing_quote = q.price
         q.client_quote_total = q.price
         q.minimum_take_home_amount = form.cleaned_data.get('minimum_take_home_amount')
+
+        # Discount selection — mutually exclusive, validated server-side
+        # regardless of what the client-side calculator showed.
+        promo_input = (form.cleaned_data.get('promo_code_input') or '').strip()
+        if q.used_founding_credit and promo_input:
+            flash.error(request, 'Choose either your founding member credit or a promo code, not both.')
+            return redirect('task_detail', pk=pk)
+
+        if q.used_founding_credit:
+            profile = _get_tradie_profile(request.user)
+            if not profile or not profile.is_founding_member or profile.founding_member_credit_balance <= 0:
+                flash.error(request, 'Your founding member credit is not available.')
+                return redirect('task_detail', pk=pk)
+
+        promo = None
+        if promo_input:
+            promo = PromoCode.objects.filter(code__iexact=promo_input).first()
+            if not promo or not promo.is_valid_now():
+                flash.error(request, f'"{promo_input}" is not a valid or active promo code.')
+                return redirect('task_detail', pk=pk)
+            q.promo_code = promo
 
         settings = get_active_platform_settings()
         totals = None
@@ -516,7 +543,17 @@ def submit_quote(request, pk):
             if q.price <= settings.large_job_threshold and q.estimated_platform_fee > q.success_fee_cap_at_quote_time:
                 q.estimated_platform_fee = q.success_fee_cap_at_quote_time
             q.estimated_platform_fee = q.estimated_platform_fee.quantize(Decimal('0.01'))
-            q.estimated_provider_take_home = (q.price - q.estimated_platform_fee).quantize(Decimal('0.01'))
+
+            discount = Decimal('0.00')
+            if q.used_founding_credit:
+                profile = _get_tradie_profile(request.user)
+                discount = min(profile.founding_member_credit_balance, q.estimated_platform_fee)
+            elif promo:
+                discount = promo.calculate_discount(q.estimated_platform_fee)
+            q.estimated_discount_amount = discount.quantize(Decimal('0.01'))
+
+            effective_fee = q.estimated_platform_fee - q.estimated_discount_amount
+            q.estimated_provider_take_home = (q.price - effective_fee).quantize(Decimal('0.01'))
             q.estimated_tradie_take_home = q.estimated_provider_take_home
         q.save()
         flash.success(request, 'Quote submitted! The client will be in touch.')
@@ -524,6 +561,32 @@ def submit_quote(request, pk):
         for err in form.errors.values():
             flash.error(request, str(err))
     return redirect('task_detail', pk=pk)
+
+
+@login_required
+def check_promo_code(request, pk):
+    """
+    AJAX endpoint for the quote calculator: validate a promo code and report
+    back its discount type/value so the client-side calculator can preview
+    the discount. The real, authoritative check happens again in
+    submit_quote() — this is UI feedback only, not the source of truth.
+    """
+    code = (request.GET.get('code') or '').strip()
+    if not code:
+        return JsonResponse({'valid': False, 'message': 'Enter a code.'})
+    promo = PromoCode.objects.filter(code__iexact=code).first()
+    if not promo or not promo.is_valid_now():
+        return JsonResponse({'valid': False, 'message': 'Not a valid or active promo code.'})
+    return JsonResponse({
+        'valid': True,
+        'discount_type': promo.discount_type,
+        'discount_value': str(promo.discount_value),
+        'message': (
+            f'{promo.discount_value}% off the platform fee'
+            if promo.discount_type == PromoCode.DISCOUNT_PERCENT
+            else f'FJD ${promo.discount_value} off the platform fee'
+        ),
+    })
 
 
 # ── Book quoting appointment ─────────────────────────────────────────────────

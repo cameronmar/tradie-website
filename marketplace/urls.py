@@ -22,6 +22,7 @@ urlpatterns = [
     path('tasks/post/',            views.post_task,     name='post_task'),
     path('tasks/<int:pk>/',        views.task_detail,   name='task_detail'),
     path('tasks/<int:pk>/quote/',  views.submit_quote,  name='submit_quote'),
+    path('tasks/<int:pk>/quote/check-promo/', views.check_promo_code, name='check_promo_code'),
     path('tasks/<int:pk>/quoting-appointment/', views.book_quoting_appointment, name='book_quoting_appointment'),
     path('tasks/<int:pk>/quoting-appointment/<int:appt_pk>/accept/<int:slot_pk>/', views.accept_quoting_appointment_slot, name='accept_quoting_appointment_slot'),
     path('tasks/<int:pk>/quoting-appointment/<int:appt_pk>/decline/', views.decline_quoting_appointment, name='decline_quoting_appointment'),

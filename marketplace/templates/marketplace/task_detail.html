@@ -12,6 +12,10 @@
 .sect-card{background:var(--white);border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.08);padding:22px;margin-bottom:14px;}
 .sect-card h2{font-size:1rem;color:var(--blue);margin:0 0 14px;padding-bottom:9px;border-bottom:1px solid var(--blue-light);}
 .desc-text{color:var(--muted);font-size:.9rem;line-height:1.7;}
+.discount-opts{display:flex;flex-direction:column;gap:6px;}
+.discount-opt{display:flex;align-items:center;gap:7px;font-size:.87rem;cursor:pointer;}
+.discount-opt input{accent-color:var(--blue);}
+#quote_discount_display{color:var(--green);}
 /* Quote cards */
 .qc{border:1.5px solid #dde8ef;border-radius:12px;padding:15px;margin-bottom:11px;transition:border-color .2s;}
 .qc:hover{border-color:var(--blue);}
@@ -225,6 +229,22 @@
               <label>Minimum amount I want to take home</label>
               {{ quote_form.minimum_take_home_amount }}
             </div>
+
+            <div class="field" style="margin-bottom:14px;">
+              <label>Discount on the platform fee (optional)</label>
+              <div class="discount-opts">
+                <label class="discount-opt"><input type="radio" name="discount_choice" value="none" checked> No discount</label>
+                {% if founding_credit_balance > 0 %}
+                <label class="discount-opt"><input type="radio" name="discount_choice" value="founding"> Apply my founding member credit (FJD ${{ founding_credit_balance }} remaining)</label>
+                {% endif %}
+                <label class="discount-opt"><input type="radio" name="discount_choice" value="promo"> Use a promo code</label>
+              </div>
+              <div id="promo-code-row" style="display:none;margin-top:8px;">
+                <input type="text" id="promo_code_text" class="form-input" placeholder="Enter promo code">
+                <div id="promo_code_feedback" class="hint"></div>
+              </div>
+            </div>
+
             <button type="button" id="calculate-quote" class="btn btn-outline-blue" style="width:100%;margin-bottom:18px;">Calculate Customer Quote</button>
 
             <div class="field" style="margin-bottom:14px;">
@@ -235,6 +255,10 @@
               <div class="field" style="margin-bottom:10px;">
                 <strong>Estimated Coconut Wireless fee:</strong>
                 <div id="quote_fee_display">FJD $0.00</div>
+              </div>
+              <div class="field" style="margin-bottom:10px;display:none;" id="discount_row">
+                <strong>Discount applied:</strong>
+                <div id="quote_discount_display">-FJD $0.00</div>
               </div>
               <div class="field" style="margin-bottom:10px;">
                 <strong>Estimated take-home:</strong>
@@ -256,6 +280,8 @@
               {{ quote_form.success_fee_cap_at_quote_time }}
               {{ quote_form.large_job_threshold_at_quote_time }}
               {{ quote_form.large_job_fee_rate_at_quote_time }}
+              {{ quote_form.used_founding_credit }}
+              {{ quote_form.promo_code_input }}
             </div>
 
             <div class="field">
@@ -358,13 +384,45 @@
     feeCap: parseFloat('{{ platform_settings.success_fee_cap }}'),
     largeThreshold: parseFloat('{{ platform_settings.large_job_threshold }}'),
     largeFeeRate: parseFloat('{{ platform_settings.large_job_fee_rate }}'),
+    foundingCreditBalance: parseFloat('{{ founding_credit_balance|default:"0" }}'),
   };
+  const checkPromoCodeUrl = '{{ check_promo_code_url }}';
 
   const form = document.querySelector('form[action="{{ submit_quote_url }}"]');
   if (!form) return;
 
   const minInput = form.querySelector('[name="minimum_take_home_amount"]');
   const priceInput = form.querySelector('[name="price"]');
+  const discountRadios = form.querySelectorAll('input[name="discount_choice"]');
+  const promoCodeRow = document.getElementById('promo-code-row');
+  const promoCodeText = document.getElementById('promo_code_text');
+  const promoCodeFeedback = document.getElementById('promo_code_feedback');
+  const discountRow = document.getElementById('discount_row');
+  const discountDisplay = document.getElementById('quote_discount_display');
+  const hiddenUsedFoundingCredit = form.querySelector('[name="used_founding_credit"]');
+  const hiddenPromoCodeInput = form.querySelector('[name="promo_code_input"]');
+
+  let validatedPromo = null;  // {discount_type, discount_value, message} once a code checks out
+  let lastValues = null;      // base (pre-discount) result from the last calculation
+
+  function currentDiscountChoice() {
+    const checked = form.querySelector('input[name="discount_choice"]:checked');
+    return checked ? checked.value : 'none';
+  }
+
+  function getDiscountAmount(feeAmount) {
+    const choice = currentDiscountChoice();
+    if (choice === 'founding') {
+      return Math.min(settings.foundingCreditBalance, feeAmount);
+    }
+    if (choice === 'promo' && validatedPromo) {
+      const discount = validatedPromo.discount_type === 'percent'
+        ? roundValue(feeAmount * parseFloat(validatedPromo.discount_value) / 100)
+        : parseFloat(validatedPromo.discount_value);
+      return Math.min(discount, feeAmount);
+    }
+    return 0;
+  }
   const hiddenCustomerFacing = form.querySelector('[name="customer_facing_quote"]');
   const hiddenPlatformFee = form.querySelector('[name="estimated_platform_fee"]');
   const hiddenProviderTakeHome = form.querySelector('[name="estimated_provider_take_home"]');
@@ -451,20 +509,88 @@
 
   function updateCalculatorDisplay(values) {
     if (!resultBox) return;
+    lastValues = values;
+
+    const discount = getDiscountAmount(values.estimated_platform_fee);
+    const effectiveFee = roundValue(values.estimated_platform_fee - discount);
+    const takeHome = roundValue(values.customer_facing_quote - effectiveFee);
+
     feeDisplay.textContent = formatFJD(values.estimated_platform_fee);
-    takeHomeDisplay.textContent = formatFJD(values.estimated_provider_take_home);
+    if (discount > 0) {
+      discountRow.style.display = 'block';
+      discountDisplay.textContent = '-' + formatFJD(discount);
+    } else {
+      discountRow.style.display = 'none';
+    }
+    takeHomeDisplay.textContent = formatFJD(takeHome);
     ruleDisplay.textContent = values.fee_rule_applied;
     resultBox.style.display = 'block';
 
     if (hiddenCustomerFacing) hiddenCustomerFacing.value = values.customer_facing_quote.toFixed(2);
     if (hiddenPlatformFee) hiddenPlatformFee.value = values.estimated_platform_fee.toFixed(2);
-    if (hiddenProviderTakeHome) hiddenProviderTakeHome.value = values.estimated_provider_take_home.toFixed(2);
+    if (hiddenProviderTakeHome) hiddenProviderTakeHome.value = takeHome.toFixed(2);
     if (hiddenFeeRule) hiddenFeeRule.value = values.fee_rule_applied;
     if (hiddenSuccessRate) hiddenSuccessRate.value = values.success_fee_rate_at_quote_time;
     if (hiddenSuccessCap) hiddenSuccessCap.value = values.success_fee_cap_at_quote_time;
     if (hiddenLargeThreshold) hiddenLargeThreshold.value = values.large_job_threshold_at_quote_time;
     if (hiddenLargeRate) hiddenLargeRate.value = values.large_job_fee_rate_at_quote_time;
+
+    const choice = currentDiscountChoice();
+    if (hiddenUsedFoundingCredit) hiddenUsedFoundingCredit.value = (choice === 'founding') ? 'on' : '';
+    if (hiddenPromoCodeInput) hiddenPromoCodeInput.value = (choice === 'promo' && validatedPromo && promoCodeText) ? promoCodeText.value.trim() : '';
   }
+
+  function recalculateFromLast() {
+    if (lastValues) updateCalculatorDisplay(lastValues);
+  }
+
+  let promoDebounceTimer = null;
+  function checkPromoCode() {
+    const code = promoCodeText.value.trim();
+    if (!code) {
+      validatedPromo = null;
+      promoCodeFeedback.textContent = '';
+      recalculateFromLast();
+      return;
+    }
+    fetch(checkPromoCodeUrl + '?code=' + encodeURIComponent(code))
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (data.valid) {
+          validatedPromo = data;
+          promoCodeFeedback.textContent = '✓ ' + data.message;
+          promoCodeFeedback.style.color = 'var(--green)';
+        } else {
+          validatedPromo = null;
+          promoCodeFeedback.textContent = data.message || 'Invalid code.';
+          promoCodeFeedback.style.color = '#c0392b';
+        }
+        recalculateFromLast();
+      })
+      .catch(function(){
+        validatedPromo = null;
+        promoCodeFeedback.textContent = 'Could not check code — try again.';
+      });
+  }
+
+  if (promoCodeText) {
+    promoCodeText.addEventListener('input', function(){
+      clearTimeout(promoDebounceTimer);
+      promoDebounceTimer = setTimeout(checkPromoCode, 500);
+    });
+  }
+
+  discountRadios.forEach(function(radio){
+    radio.addEventListener('change', function(){
+      const choice = currentDiscountChoice();
+      if (promoCodeRow) promoCodeRow.style.display = (choice === 'promo') ? 'block' : 'none';
+      if (choice !== 'promo') {
+        validatedPromo = null;
+        if (promoCodeFeedback) promoCodeFeedback.textContent = '';
+      }
+      recalculateFromLast();
+    });
+  });
 
   function handlePriceChange() {
     const price = parseFloat(priceInput.value);

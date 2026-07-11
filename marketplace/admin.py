@@ -19,6 +19,7 @@ from .models import (
     PlatformFee,
     PlatformNotice,
     PlatformSettings,
+    PromoCode,
     PrivateReview,   # ← only imported here
     PublicReview,
     Quote,
@@ -72,8 +73,8 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(TradieProfile)
 class TradieProfileAdmin(admin.ModelAdmin):
-    list_display  = ['user', 'business_name', 'years_experience', 'service_towns_display', 'verification_status', 'has_tin_letter', 'documents_verified']
-    list_filter   = ['verification_status', 'documents_verified']
+    list_display  = ['user', 'business_name', 'years_experience', 'service_towns_display', 'verification_status', 'has_tin_letter', 'documents_verified', 'is_founding_member', 'founding_member_credit_balance']
+    list_filter   = ['verification_status', 'documents_verified', 'is_founding_member']
     search_fields = ['user__email', 'user__first_name', 'business_name', 'tin']
     raw_id_fields = ['user']
     readonly_fields = [
@@ -95,6 +96,7 @@ class TradieProfileAdmin(admin.ModelAdmin):
             'plumber_licence', 'plumber_licence_link',
         )}),
         ('Approval Status', {'fields': ('verification_status', 'documents_verified')}),
+        ('Founding Member', {'fields': ('is_founding_member', 'founding_member_credit_balance')}),
         ('Notes',            {'fields': ('verification_notes',)}),
     )
 
@@ -283,6 +285,7 @@ class QuoteAdmin(admin.ModelAdmin):
         ('Quote Assignment', {'fields': ('task', 'tradie')}),
         ('Quote Pricing', {'fields': ('minimum_take_home_amount', 'customer_facing_quote', 'price', 'include_platform_fee')}),
         ('Fee Estimates', {'fields': ('estimated_platform_fee', 'estimated_provider_take_home', 'fee_rule_applied', 'success_fee_rate_at_quote_time', 'success_fee_cap_at_quote_time', 'large_job_threshold_at_quote_time', 'large_job_fee_rate_at_quote_time', 'client_quote_total', 'estimated_tradie_take_home')}),
+        ('Discount', {'fields': ('used_founding_credit', 'promo_code', 'estimated_discount_amount')}),
         ('Job Details', {'fields': ('includes_materials', 'quote_includes', 'earliest_available_date', 'estimated_job_duration', 'warranty_or_followup_included')}),
         ('Message', {'fields': ('message',)}),
         ('Status', {'fields': ('status',)}),
@@ -414,18 +417,34 @@ class PlatformSettingsAdmin(admin.ModelAdmin):
         return not PlatformSettings.objects.filter(active=True).exists()
 
 
+# ── Promo Codes ────────────────────────────────────────────────────────────────
+
+@admin.register(PromoCode)
+class PromoCodeAdmin(admin.ModelAdmin):
+    list_display  = ['code', 'discount_type', 'discount_value', 'active', 'start_date', 'end_date', 'times_used', 'max_uses']
+    list_filter   = ['discount_type', 'active']
+    search_fields = ['code']
+    readonly_fields = ['times_used', 'created_at']
+    fieldsets = (
+        ('Code', {'fields': ('code', 'active')}),
+        ('Discount', {'fields': ('discount_type', 'discount_value')}),
+        ('Availability', {'fields': ('start_date', 'end_date', 'max_uses')}),
+        ('Usage', {'fields': ('times_used', 'created_at')}),
+    )
+
+
 # ── Platform Fee ──────────────────────────────────────────────────────────────
 
 @admin.register(PlatformFee)
 class PlatformFeeAdmin(admin.ModelAdmin):
-    list_display = ['task', 'tradie', 'final_job_value', 'fee_amount', 'status', 'created_at']
+    list_display = ['task', 'tradie', 'final_job_value', 'gross_fee_amount', 'discount_amount', 'fee_amount', 'status', 'created_at']
     list_filter = ['status', 'tradie', 'created_at']
     search_fields = ['task__title', 'tradie__email']
     raw_id_fields = ['task', 'tradie']
     readonly_fields = ['created_at']
     fieldsets = (
         ('Task & Tradie', {'fields': ('task', 'tradie')}),
-        ('Fee Details', {'fields': ('final_job_value', 'fee_rate', 'fee_cap', 'fee_amount')}),
+        ('Fee Details', {'fields': ('final_job_value', 'fee_rate', 'fee_cap', 'gross_fee_amount', 'discount_amount', 'fee_amount')}),
         ('Status', {'fields': ('status',)}),
         ('Timestamps', {'fields': ('created_at',)}),
     )
