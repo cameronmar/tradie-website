@@ -77,12 +77,8 @@
         <label class="f-opt"><input type="radio" name="town_r" value="" {% if not town_filter %}checked{% endif %} onchange="applyFilter('town','')"> All towns</label>
       </div>
       {% if sponsors %}
-      <div class="sponsor-block">
-        {% for s in sponsors %}
-        <a href="{{ s.destination_url }}" target="_blank" rel="noopener sponsored" title="{{ s.business_name }}">
-          <img src="{{ s.banner_image.url }}" alt="{{ s.business_name }}" style="width:100%;border-radius:10px;margin-top:10px;display:block;">
-        </a>
-        {% endfor %}
+      <div class="sponsor-block" style="margin-top:10px;">
+        {% include "marketplace/_sponsor_carousel.html" %}
       </div>
       {% endif %}
     </aside>

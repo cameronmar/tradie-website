@@ -1,0 +1,34 @@
+{% if sponsors %}
+<div class="sponsor-carousel">
+  <p class="sponsor-carousel-lbl">Sponsored</p>
+  <div class="sponsor-carousel-slides">
+    {% for s in sponsors %}
+    <a href="{{ s.destination_url }}" target="_blank" rel="noopener sponsored" title="{{ s.business_name }}"
+       class="sponsor-carousel-slide{% if forloop.first %} active{% endif %}">
+      <img src="{{ s.banner_image.url }}" alt="{{ s.business_name }}">
+    </a>
+    {% endfor %}
+  </div>
+</div>
+<style>
+.sponsor-carousel-lbl{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px;}
+.sponsor-carousel-slides{position:relative;}
+.sponsor-carousel-slide{display:none;}
+.sponsor-carousel-slide.active{display:block;}
+.sponsor-carousel-slide img{width:100%;border-radius:10px;display:block;}
+</style>
+<script>
+(function(){
+  document.querySelectorAll('.sponsor-carousel').forEach(function(carousel){
+    var slides = carousel.querySelectorAll('.sponsor-carousel-slide');
+    if(slides.length < 2) return;
+    var i = 0;
+    setInterval(function(){
+      slides[i].classList.remove('active');
+      i = (i + 1) % slides.length;
+      slides[i].classList.add('active');
+    }, 10000);
+  });
+})();
+</script>
+{% endif %}

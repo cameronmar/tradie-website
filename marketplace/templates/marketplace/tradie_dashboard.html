@@ -55,12 +55,7 @@ footer{display:none;}
     <a href="{% url 'logout' %}" class="sb-link"><span class="icon">🚪</span>Log out</a>
     {% if sponsors %}
     <div style="padding:14px 16px;">
-      <p style="font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px;">Sponsored</p>
-      {% for s in sponsors %}
-      <a href="{{ s.destination_url }}" target="_blank" rel="noopener sponsored" title="{{ s.business_name }}">
-        <img src="{{ s.banner_image.url }}" alt="{{ s.business_name }}" style="width:100%;border-radius:8px;display:block;{% if not forloop.last %}margin-bottom:8px;{% endif %}">
-      </a>
-      {% endfor %}
+      {% include "marketplace/_sponsor_carousel.html" %}
     </div>
     {% endif %}
   </aside>

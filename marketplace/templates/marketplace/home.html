@@ -81,15 +81,8 @@
 </main>
 
 {% if sponsors %}
-<div class="container" style="padding:0 20px 28px;">
-  <p style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 10px;">Sponsored</p>
-  <div style="display:flex;gap:16px;flex-wrap:wrap;">
-    {% for s in sponsors %}
-    <a href="{{ s.destination_url }}" target="_blank" rel="noopener sponsored" title="{{ s.business_name }}" style="flex:1;min-width:200px;">
-      <img src="{{ s.banner_image.url }}" alt="{{ s.business_name }}" style="width:100%;border-radius:12px;display:block;">
-    </a>
-    {% endfor %}
-  </div>
+<div class="container" style="padding:0 20px 28px;max-width:400px;">
+  {% include "marketplace/_sponsor_carousel.html" %}
 </div>
 {% endif %}
 
