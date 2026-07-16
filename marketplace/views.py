@@ -57,6 +57,7 @@ from .utils import (
     create_platform_fee_for_task,
     get_active_platform_settings,
     get_tradie_billing_summary,
+    notify_admin,
     send_welcome_notice,
 )
 
@@ -138,6 +139,27 @@ def privacy(request):
     return render(request, 'marketplace/privacy.html')
 
 
+def contact_support(request):
+    """
+    Sitewide "Contact" link (footer). Notifies the admin the moment someone
+    clicks it, then shows a simple confirmation — no form to fill in first.
+    """
+    if request.user.is_authenticated:
+        who = f'{request.user.full_name} ({request.user.email}, {request.user.get_role_display()})'
+    else:
+        who = 'Anonymous visitor (not logged in)'
+
+    notify_admin(
+        subject='Support link clicked on Coconut Wireless',
+        body=(
+            f'{who} clicked the Contact/Support link.\n\n'
+            f'Page they came from: {request.META.get("HTTP_REFERER", "unknown")}\n'
+            f'Time: {timezone.now().strftime("%d %B %Y, %H:%M")} UTC'
+        ),
+    )
+    return render(request, 'marketplace/support_contact.html')
+
+
 def healthz(request):
     try:
         with connection.cursor() as cursor:
@@ -215,6 +237,19 @@ def register_tradie(request):
         )
         login(request, user)
         send_welcome_notice(user)
+        try:
+            approve_url = request.build_absolute_uri(
+                reverse('admin:marketplace_tradieprofile_change', args=[user.tradie_profile.pk])
+            )
+        except Exception:
+            approve_url = '(check /admin/marketplace/tradieprofile/)'
+        notify_admin(
+            subject=f'New local pro signup awaiting approval: {user.full_name}',
+            body=(
+                f'{user.full_name} ({user.email}) just registered as a local pro in {user.town}.\n\n'
+                f'Their documents are pending review. Approve or reject here:\n{approve_url}'
+            ),
+        )
         flash.success(request, f'Bula, {user.first_name}! Your local pro account is created and pending document verification.')
         return redirect('tradie_dashboard')
     return render(request, 'marketplace/register_tradie.html', {

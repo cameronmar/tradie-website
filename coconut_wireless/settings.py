@@ -231,6 +231,12 @@ if IS_PRODUCTION:
             f'Missing required SMTP environment variables in production: {", ".join(missing_email_vars)}'
         )
 
+# Where operational notifications (support contact clicks, new tradie signups
+# awaiting approval) get sent. Deliberately optional — never required, so
+# forgetting to set it degrades to "no notification sent" rather than
+# crashing the whole app on startup.
+ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', '').strip()
+
 # ── Observability (optional) ──────────────────────────────────────────────────
 SENTRY_DSN = os.environ.get('SENTRY_DSN', '').strip()
 if SENTRY_DSN:

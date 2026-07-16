@@ -1,0 +1,15 @@
+{% extends "marketplace/base.html" %}
+{% block title %}Contact – Coconut Wireless{% endblock %}
+{% block meta_description %}Get in touch with the Coconut Wireless team.{% endblock %}
+
+{% block content %}
+<main class="container" style="padding:40px 20px 80px;max-width:640px;">
+  <div class="card" style="text-align:center;padding:36px 24px;">
+    <div style="font-size:2.4rem;margin-bottom:10px;">👋</div>
+    <h1 class="mt-0">We've been notified</h1>
+    <p class="text-muted">Our team has just been alerted that you're looking for help — someone will follow up with you soon.</p>
+    <p class="text-muted">In the meantime, if it's urgent, you can email us directly and we'll get back to you as soon as we can.</p>
+    <a href="{% url 'home' %}" class="btn btn-primary" style="margin-top:14px;display:inline-block;">Back to Coconut Wireless</a>
+  </div>
+</main>
+{% endblock %}

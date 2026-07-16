@@ -611,3 +611,40 @@ def send_welcome_notice(user):
                 sentry_sdk.capture_exception(exc)
             except ImportError:
                 pass
+
+
+def notify_admin(subject, body):
+    """
+    Send an operational notification (support contact click, new tradie
+    pending approval, etc.) to settings.ADMIN_EMAIL. Best-effort and silent
+    if ADMIN_EMAIL isn't configured — this must never break the user-facing
+    request that triggered it.
+    """
+    from django.conf import settings as django_settings
+    from django.core.mail import send_mail
+
+    admin_email = getattr(django_settings, 'ADMIN_EMAIL', '')
+    if not admin_email:
+        print(f'notify_admin: ADMIN_EMAIL not configured, skipping notification: {subject}', flush=True)
+        return False
+
+    try:
+        send_mail(
+            subject, body,
+            getattr(django_settings, 'DEFAULT_FROM_EMAIL', 'noreply@coconutwireless.fj'),
+            [admin_email],
+            fail_silently=False,
+        )
+        return True
+    except Exception as exc:
+        import sys
+        import traceback
+        print(f'notify_admin: send failed: {exc!r}', flush=True)
+        traceback.print_exc()
+        sys.stderr.flush()
+        try:
+            import sentry_sdk
+            sentry_sdk.capture_exception(exc)
+        except ImportError:
+            pass
+        return False

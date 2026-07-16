@@ -7,6 +7,7 @@ urlpatterns = [
     path('how-it-works/',          views.how_it_works,  name='how_it_works'),
     path('privacy/',               views.privacy,       name='privacy'),
     path('terms/',                 views.terms,         name='terms'),
+    path('support/',               views.contact_support, name='contact_support'),
     # Auth
     path('register/',              views.register_client,  name='register_client'),
     path('register/tradie/',       views.register_tradie,  name='register_tradie'),
