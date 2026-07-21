@@ -299,7 +299,7 @@ def build_invoice_line_description(fee, settings=None):
     ]
     if rule.startswith('Large job'):
         lines.append(f'Fee rule: {rule}')
-    lines.append(f'Coconut Wireless Network fee: FJD ${fee.fee_amount:.2f}')
+    lines.append(f'The Coconut Wireless Network fee: FJD ${fee.fee_amount:.2f}')
     return '\n'.join(lines)
 
 
@@ -386,7 +386,7 @@ def send_invoice_notifications(invoice):
         for line in lines
     )
 
-    subject = f'Coconut Wireless Network invoice {invoice.invoice_number}'
+    subject = f'The Coconut Wireless Network invoice {invoice.invoice_number}'
 
     body = (
         f'Bula {tradie.first_name},\n\n'
@@ -397,11 +397,11 @@ def send_invoice_notifications(invoice):
         f'Jobs included:\n{job_lines}\n\n'
         f'Please arrange payment by bank transfer or M-PAiSA.\n\n'
         f'You can view the full invoice in your Billing section.\n\n'
-        f'Vinaka,\nCoconut Wireless Network Team'
+        f'Vinaka,\nThe Coconut Wireless Network Team'
     )
 
     sms_body = (
-        f'Coconut Wireless Network invoice {invoice.invoice_number} issued. '
+        f'The Coconut Wireless Network invoice {invoice.invoice_number} issued. '
         f'Amount: FJD ${invoice.total_amount:.2f}. '
         f'Due: {invoice.due_date.strftime("%d %B %Y")}. '
         f'Check your Coconut Wireless Network messages/email. Vinaka.'
@@ -555,23 +555,23 @@ def send_welcome_notice(user):
     from django.core.mail import send_mail
 
     if user.role == User.ROLE_TRADIE:
-        subject = 'Welcome to the Coconut Wireless Network — you are set up as a Local Pro'
+        subject = 'Welcome to the Coconut Wireless Network — you are set up as a Local Professional'
         body = (
             f'Bula {user.first_name},\n\n'
-            f'Welcome to the Coconut Wireless Network! Your local pro account has been created.\n\n'
+            f'Welcome to the Coconut Wireless Network! Your local professional account has been created.\n\n'
             f'Your documents are now pending review — once verified, you can start '
             f'quoting on tasks posted by clients across Fiji.\n\n'
             f'In the meantime, you can complete your profile and browse open tasks '
             f'in your service towns from your dashboard.\n\n'
-            f'Vinaka,\nCoconut Wireless Network Team'
+            f'Vinaka,\nThe Coconut Wireless Network Team'
         )
     else:
         subject = 'Welcome to the Coconut Wireless Network'
         body = (
             f'Bula {user.first_name},\n\n'
             f'Welcome to the Coconut Wireless Network! Your client account is ready.\n\n'
-            f'Post your first task to get quotes from trusted local pros in your area.\n\n'
-            f'Vinaka,\nCoconut Wireless Network Team'
+            f'Post your first task to get quotes from trusted local professionals in your area.\n\n'
+            f'Vinaka,\nThe Coconut Wireless Network Team'
         )
 
     # Log an in-platform notice (always — this is what the user sees in their

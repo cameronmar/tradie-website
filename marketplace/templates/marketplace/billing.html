@@ -1,5 +1,5 @@
 {% extends "marketplace/base.html" %}
-{% block title %}Billing – Coconut Wireless Network{% endblock %}
+{% block title %}Billing – The Coconut Wireless Network{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -49,7 +49,7 @@ footer{display:none;}
     <div class="sb-user">
       <div class="sb-av">{{ user.initials }}</div>
       <div class="sb-name">{{ user.first_name }} {{ user.last_name }}</div>
-      <div class="sb-role">Local Pro · {{ user.town }}</div>
+      <div class="sb-role">Local Professional · {{ user.town }}</div>
     </div>
     <div class="sb-lbl">Work</div>
     <a href="{% url 'tradie_dashboard' %}" class="sb-link"><span class="icon">🏠</span>Dashboard</a>
@@ -64,7 +64,7 @@ footer{display:none;}
 
   <main class="main">
     <div class="page-title">Billing</div>
-    <p class="page-sub">Your Coconut Wireless Network platform fee invoices.</p>
+    <p class="page-sub">Your platform fee invoices from the Coconut Wireless Network.</p>
 
     {% if summary.is_payment_restricted %}
     <div class="restricted-banner">

@@ -77,24 +77,24 @@ def _get_tradie_profile(user):
         return None
 
 
-def _require_approved_tradie(request):
+def _require_quoting_tradie(request):
+    """Gate for actions that place a quote/appointment request. Pending
+    tradies are allowed through (they can quote while awaiting verification —
+    clients see a pending badge) — only rejected/suspended accounts are blocked."""
     if not request.user.is_authenticated:
         raise PermissionDenied
     if request.user.role != User.ROLE_TRADIE:
-        flash.error(request, 'Only local pro accounts can access this action.')
+        flash.error(request, 'Only local professional accounts can access this action.')
         return redirect('dashboard')
     profile = _get_tradie_profile(request.user)
     if not profile:
-        flash.warning(request, 'Your local pro profile could not be found. Please contact support.')
-        return redirect('tradie_dashboard')
-    if profile.verification_status == TradieProfile.VERIFICATION_PENDING:
-        flash.warning(request, 'Your local pro account is pending verification. You can browse, but quoting is disabled.')
+        flash.warning(request, 'Your local professional profile could not be found. Please contact support.')
         return redirect('tradie_dashboard')
     if profile.verification_status == TradieProfile.VERIFICATION_REJECTED:
-        flash.error(request, 'Your local pro account verification was rejected. Please contact support.')
+        flash.error(request, 'Your local professional account verification was rejected. Please contact support.')
         return redirect('tradie_dashboard')
     if profile.verification_status == TradieProfile.VERIFICATION_SUSPENDED:
-        flash.error(request, 'Your local pro account is suspended. Please contact support.')
+        flash.error(request, 'Your local professional account is suspended. Please contact support.')
         return redirect('tradie_dashboard')
     return None
 
@@ -142,7 +142,7 @@ def privacy(request):
 
 def contact_support(request):
     """
-    Sitewide "Contact" link (footer). Lets clients and local pros send a
+    Sitewide "Contact" link (footer). Lets clients and local professionals send a
     message straight to the admin inbox, Reply-To set to their own address
     so replying from the admin's inbox goes directly back to them.
     """
@@ -260,13 +260,13 @@ def register_tradie(request):
         except Exception:
             approve_url = '(check /admin/marketplace/tradieprofile/)'
         notify_admin(
-            subject=f'New local pro signup awaiting approval: {user.full_name}',
+            subject=f'New local professional signup awaiting approval: {user.full_name}',
             body=(
-                f'{user.full_name} ({user.email}) just registered as a local pro in {user.town}.\n\n'
+                f'{user.full_name} ({user.email}) just registered as a local professional in {user.town}.\n\n'
                 f'Their documents are pending review. Approve or reject here:\n{approve_url}'
             ),
         )
-        flash.success(request, f'Bula, {user.first_name}! Your local pro account is created and pending document verification.')
+        flash.success(request, f'Bula, {user.first_name}! Your local professional account is created and pending document verification.')
         return redirect('tradie_dashboard')
     return render(request, 'marketplace/register_tradie.html', {
         'form': form,
@@ -331,10 +331,10 @@ def client_dashboard(request):
 def tradie_dashboard(request):
     _require_role(request, User.ROLE_TRADIE)
     profile = _get_tradie_profile(request.user)
-    tradie_is_approved = profile.is_approved() if profile else False
+    tradie_can_quote = profile.can_quote() if profile else False
 
     nearby = Task.objects.none()
-    if tradie_is_approved and profile.service_towns:
+    if tradie_can_quote and profile.service_towns:
         nearby = (
             Task.objects.filter(
                 status=Task.STATUS_OPEN,
@@ -367,7 +367,7 @@ def tradie_dashboard(request):
         ),
         'appointments':    provider_appointments,
         'sponsors':        Sponsor.get_active_for_placement('tradie_dashboard'),
-        'tradie_is_approved': tradie_is_approved,
+        'tradie_can_quote': tradie_can_quote,
     }
     return render(request, 'marketplace/tradie_dashboard.html', ctx)
 
@@ -440,7 +440,7 @@ def task_detail(request, pk):
 
     user_quote        = None
     can_quote         = False
-    tradie_is_approved = False
+    tradie_can_quote  = False
     can_accept        = False
     can_complete      = False
     can_rate_tradie   = False
@@ -452,10 +452,10 @@ def task_detail(request, pk):
     if request.user.is_authenticated:
         u = request.user
         tradie_profile = _get_tradie_profile(u) if u.role == User.ROLE_TRADIE else None
-        tradie_is_approved = tradie_profile.is_approved() if tradie_profile else False
+        tradie_can_quote = tradie_profile.can_quote() if tradie_profile else False
         if tradie_profile and tradie_profile.is_founding_member:
             founding_credit_balance = tradie_profile.founding_member_credit_balance
-        if u.role == User.ROLE_TRADIE and tradie_is_approved and task.status == Task.STATUS_OPEN:
+        if u.role == User.ROLE_TRADIE and tradie_can_quote and task.status == Task.STATUS_OPEN:
             try:
                 user_quote = quotes.get(tradie=u)
             except Quote.DoesNotExist:
@@ -471,7 +471,7 @@ def task_detail(request, pk):
     can_book_appointment = (
         request.user.is_authenticated
         and request.user.role == User.ROLE_TRADIE
-        and tradie_is_approved
+        and tradie_can_quote
         and task.status == Task.STATUS_OPEN
     )
     user_has_appointment = request.user.is_authenticated and appointments.filter(provider=request.user).exists()
@@ -523,7 +523,7 @@ def task_detail(request, pk):
         'can_book_appointment': can_book_appointment,
         'user_has_appointment': user_has_appointment,
         'can_message_client': can_message_client,
-        'tradie_can_participate': tradie_is_approved,
+        'tradie_can_participate': tradie_can_quote,
         'sponsors':        Sponsor.get_active_for_placement('task_detail_sidebar'),
         'founding_credit_balance': founding_credit_balance,
         'check_promo_code_url': reverse('check_promo_code', args=[task.pk]),
@@ -534,7 +534,7 @@ def task_detail(request, pk):
 
 @login_required
 def submit_quote(request, pk):
-    approval_redirect = _require_approved_tradie(request)
+    approval_redirect = _require_quoting_tradie(request)
     if approval_redirect:
         return approval_redirect
     task = get_object_or_404(Task, pk=pk, status=Task.STATUS_OPEN)
@@ -644,7 +644,7 @@ def check_promo_code(request, pk):
 
 @login_required
 def book_quoting_appointment(request, pk):
-    approval_redirect = _require_approved_tradie(request)
+    approval_redirect = _require_quoting_tradie(request)
     if approval_redirect:
         return approval_redirect
     task = get_object_or_404(Task, pk=pk, status=Task.STATUS_OPEN)
@@ -673,7 +673,7 @@ def accept_quoting_appointment_slot(request, pk, appt_pk, slot_pk):
     appointment.slots.update(is_selected=False)
     slot.is_selected = True
     slot.save()
-    flash.success(request, 'Quoting appointment confirmed. Your local pro will see the accepted slot.')
+    flash.success(request, 'Quoting appointment confirmed. Your local professional will see the accepted slot.')
     return redirect('task_detail', pk=pk)
 
 
@@ -684,13 +684,13 @@ def decline_quoting_appointment(request, pk, appt_pk):
     appointment = get_object_or_404(QuotingAppointment, pk=appt_pk, task=task, status=QuotingAppointment.STATUS_REQUESTED)
     appointment.status = QuotingAppointment.STATUS_DECLINED
     appointment.save()
-    flash.success(request, 'You declined the appointment request. The local pro can send a new request if needed.')
+    flash.success(request, 'You declined the appointment request. The local professional can send a new request if needed.')
     return redirect('task_detail', pk=pk)
 
 
 @login_required
 def cancel_quoting_appointment(request, pk, appt_pk):
-    approval_redirect = _require_approved_tradie(request)
+    approval_redirect = _require_quoting_tradie(request)
     if approval_redirect:
         return approval_redirect
     appointment = get_object_or_404(QuotingAppointment, pk=appt_pk, task__pk=pk, provider=request.user, status=QuotingAppointment.STATUS_REQUESTED)
@@ -746,7 +746,7 @@ def rate_tradie(request, pk):
         flash.info(request, 'You have already reviewed this job.')
         return redirect('task_detail', pk=pk)
     if not task.assigned_tradie:
-        flash.error(request, 'This task has no assigned local pro to review.')
+        flash.error(request, 'This task has no assigned local professional to review.')
         return redirect('task_detail', pk=pk)
     form = PublicReviewForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():

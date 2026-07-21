@@ -1,5 +1,5 @@
 {% extends "marketplace/base.html" %}
-{% block title %}Local Pro Dashboard – Coconut Wireless Network{% endblock %}
+{% block title %}Local Professional Dashboard – The Coconut Wireless Network{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -42,7 +42,7 @@ footer{display:none;}
     <div class="sb-user">
       <div class="sb-av">{{ user.initials }}</div>
       <div class="sb-name">{{ user.first_name }} {{ user.last_name }}</div>
-      <div class="sb-role">Local Pro · {{ user.town }}</div>
+      <div class="sb-role">Local Professional · {{ user.town }}</div>
     </div>
     <div class="sb-lbl">Work</div>
     <a href="{% url 'tradie_dashboard' %}" class="sb-link active"><span class="icon">🏠</span>Dashboard</a>
@@ -68,10 +68,15 @@ footer{display:none;}
       {% endwith %}
     </p>
 
-    {% if not tradie_is_approved %}
+    {% if profile.verification_status == 'pending' %}
     <div class="card" style="margin-bottom:18px;border:1px solid #ffe2a8;background:#fffaf0;">
       <strong>Verification in progress.</strong>
-      Your local pro account is not approved yet, so quoting and appointment requests are temporarily disabled.
+      Your documents are still being reviewed by our admin team. You can browse and quote on jobs in the meantime — clients will see a "Pending verification" note on your profile and quotes until you're approved.
+    </div>
+    {% elif not tradie_can_quote %}
+    <div class="card" style="margin-bottom:18px;border:1px solid #f5a623;background:#fff3e0;">
+      <strong>Account restricted.</strong>
+      Your local professional account is {{ profile.get_verification_status_display|lower }}, so quoting and appointment requests are disabled. Please contact support.
     </div>
     {% endif %}
 

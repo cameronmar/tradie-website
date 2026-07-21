@@ -1,5 +1,5 @@
 {% extends "marketplace/base.html" %}
-{% block title %}Log In – Coconut Wireless Network{% endblock %}
+{% block title %}Log In – The Coconut Wireless Network{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -27,7 +27,7 @@ main{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 
 
     <div class="role-tabs">
       <button class="role-tab active" id="tabClient" onclick="setRole('client')">🏠 Client</button>
-      <button class="role-tab" id="tabTradie" onclick="setRole('tradie')">🔧 Local Pro</button>
+      <button class="role-tab" id="tabTradie" onclick="setRole('tradie')">🔧 Local Professional</button>
     </div>
 
     <div class="card">
@@ -65,7 +65,7 @@ function setRole(r){
   role=r;
   document.querySelectorAll('.role-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById(r==='client'?'tabClient':'tabTradie').classList.add('active');
-  document.getElementById('loginBtn').textContent='Log in as '+(r==='client'?'Client':'Local Pro');
+  document.getElementById('loginBtn').textContent='Log in as '+(r==='client'?'Client':'Local Professional');
 }
 </script>
 {% endblock %}

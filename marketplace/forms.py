@@ -219,7 +219,7 @@ class TaskForm(forms.ModelForm):
             'materials_notes':     forms.Textarea(attrs={'class': 'form-input', 'rows': 3, 'placeholder': 'Optional details about materials or supplier access…'}),
             'parking_notes':       forms.Textarea(attrs={'class': 'form-input', 'rows': 3, 'placeholder': 'Optional parking or entry details…'}),
             'access_notes':        forms.Textarea(attrs={'class': 'form-input', 'rows': 3, 'placeholder': 'e.g. Side gate has a code, dogs on property…'}),
-            'special_instructions': forms.Textarea(attrs={'class': 'form-input', 'rows': 3, 'placeholder': 'Any special instructions for local pros…'}),
+            'special_instructions': forms.Textarea(attrs={'class': 'form-input', 'rows': 3, 'placeholder': 'Any special instructions for local professionals…'}),
             'urgency':             forms.Select(attrs={'class': 'form-input'}),
             'budget_type':         forms.Select(attrs={'class': 'form-input'}),
         }

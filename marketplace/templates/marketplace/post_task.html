@@ -1,5 +1,5 @@
 {% extends "marketplace/base.html" %}
-{% block title %}Post a Task – Coconut Wireless Network{% endblock %}
+{% block title %}Post a Task – The Coconut Wireless Network{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -30,7 +30,7 @@
 <div class="container post-page">
   <div class="page-hdr">
     <h1>Post a task</h1>
-    <p>Tell us what you need done and get quotes from local pros across Fiji.</p>
+    <p>Tell us what you need done and get quotes from local professionals across Fiji.</p>
   </div>
 
   <form method="post" action="{% url 'post_task' %}">
@@ -43,7 +43,7 @@
             <label>Task title</label>
             {{ form.title }}
             {% for e in form.title.errors %}<div class="field-error">{{e}}</div>{% endfor %}
-            <div class="hint">Be specific — it helps local pros give accurate quotes.</div>
+            <div class="hint">Be specific — it helps local professionals give accurate quotes.</div>
           </div>
           <div class="field">
             <label>Category</label>
@@ -103,14 +103,14 @@
               <label class="field-checkbox">{{ form.meals_provided }} Meals or refreshments provided</label>
               <label class="field-checkbox">{{ form.parking_available_flag }} Parking available</label>
               <label class="field-checkbox">{{ form.site_access_available }} Site access available</label>
-              <label class="field-checkbox">{{ form.tools_required }} Tools/equipment required from local pro</label>
+              <label class="field-checkbox">{{ form.tools_required }} Tools/equipment required from local professional</label>
               <label class="field-checkbox">{{ form.rubbish_removal_required }} Rubbish/disposal removal required</label>
               <label class="field-checkbox">{{ form.after_hours_required }} After-hours or weekend work required</label>
               <label class="field-checkbox">{{ form.on_site_inspection_required }} On-site quote / inspection required</label>
               <label class="field-checkbox">{{ form.delivery_required }} Delivery or transport required</label>
               <label class="field-checkbox">{{ form.clean_up_required }} Clean-up after job required</label>
               <label class="field-checkbox">{{ form.client_provide_photos }} Client will provide photos/details before quote</label>
-              <label class="field-checkbox">{{ form.warranty_followup_requested }} Local pro should include warranty/follow-up if applicable</label>
+              <label class="field-checkbox">{{ form.warranty_followup_requested }} Local professional should include warranty/follow-up if applicable</label>
             </div>
           </div>
           <div class="field">
@@ -136,7 +136,7 @@
         <div class="sidebar-card">
           <h3>Posting tips</h3>
           <div class="tip"><span>✅</span>Include make/model or measurements where relevant.</div>
-          <div class="tip"><span>✅</span>Mention if materials are needed — local pros can include them in quotes.</div>
+          <div class="tip"><span>✅</span>Mention if materials are needed — local professionals can include them in quotes.</div>
           <div class="tip"><span>✅</span>Set a realistic budget to attract serious quotes.</div>
           <div class="tip"><span>✅</span>Be available to respond to messages quickly.</div>
           <button type="submit" class="btn btn-primary" style="width:100%;margin-top:14px;padding:13px;">Post task →</button>

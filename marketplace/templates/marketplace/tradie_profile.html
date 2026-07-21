@@ -1,5 +1,5 @@
 {% extends "marketplace/base.html" %}
-{% block title %}{{ tradie.full_name }} – Coconut Wireless Network{% endblock %}
+{% block title %}{{ tradie.full_name }} – The Coconut Wireless Network{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -64,8 +64,9 @@
           · {{ tradie.town }}
         </div>
         <div class="badges-row">
+          {% if profile.verification_status == 'pending' %}<span class="chip chip-pending" title="This local professional's documents are still being reviewed by our admin team.">⏳ Pending verification</span>{% endif %}
           {% if profile.tin %}<span class="badge badge-blue">🏢 Registered Business</span>{% endif %}
-          {% if review_count %}<span class="badge badge-green">⭐ Reviewed local pro</span>{% endif %}
+          {% if review_count %}<span class="badge badge-green">⭐ Reviewed local professional</span>{% endif %}
           <span class="badge badge-blue">📍 {{ profile.service_towns_display }}</span>
         </div>
         <div class="sstats">

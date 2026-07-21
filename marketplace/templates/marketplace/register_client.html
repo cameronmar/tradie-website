@@ -1,5 +1,5 @@
 {% extends "marketplace/base.html" %}
-{% block title %}Client Sign Up – Coconut Wireless Network{% endblock %}
+{% block title %}Client Sign Up – The Coconut Wireless Network{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -17,6 +17,9 @@ main{display:flex;align-items:center;justify-content:center;padding:36px 20px;mi
 .check-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:18px;font-size:.87rem;color:var(--muted);line-height:1.5;}
 .check-row input{margin-top:2px;accent-color:var(--blue);}
 .check-row a{color:var(--blue);text-decoration:none;}
+.pw-wrap{position:relative;}
+.pw-wrap input{padding-right:38px;}
+.pw-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:var(--muted);padding:4px;line-height:1;}
 </style>
 {% endblock %}
 
@@ -37,7 +40,7 @@ main{display:flex;align-items:center;justify-content:center;padding:36px 20px;mi
         <p>Post jobs and hire professionals</p>
       </div>
       <a href="{% url 'register_tradie' %}" class="type-btn" style="text-decoration:none;">
-        <h4>🔧 I'm a Local Pro</h4>
+        <h4>🔧 I'm a Local Professional</h4>
         <p>Find work and grow my business</p>
       </a>
     </div>
@@ -75,11 +78,17 @@ main{display:flex;align-items:center;justify-content:center;padding:36px 20px;mi
         </div>
         <div class="field">
           <label>Password</label>
-          {{ form.password }}
+          <div class="pw-wrap">
+            {{ form.password }}
+            <button type="button" class="pw-toggle" data-target="id_password" aria-label="Show password">👁</button>
+          </div>
         </div>
         <div class="field">
           <label>Confirm password</label>
-          {{ form.password_confirm }}
+          <div class="pw-wrap">
+            {{ form.password_confirm }}
+            <button type="button" class="pw-toggle" data-target="id_password_confirm" aria-label="Show password">👁</button>
+          </div>
         </div>
         {% if form.non_field_errors %}
           <div class="field-error" style="margin-bottom:12px;">{{ form.non_field_errors }}</div>
@@ -94,4 +103,16 @@ main{display:flex;align-items:center;justify-content:center;padding:36px 20px;mi
     </div>
   </div>
 </main>
+
+<script>
+document.querySelectorAll('.pw-toggle').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var input = document.getElementById(btn.dataset.target);
+    if (!input) return;
+    var showing = input.type === 'text';
+    input.type = showing ? 'password' : 'text';
+    btn.textContent = showing ? '👁' : '🙈';
+  });
+});
+</script>
 {% endblock %}

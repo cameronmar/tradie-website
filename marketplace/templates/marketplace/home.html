@@ -1,5 +1,5 @@
 {% extends "marketplace/base.html" %}
-{% block title %}Coconut Wireless Network – Find Local Pros in Fiji{% endblock %}
+{% block title %}The Coconut Wireless Network – Find Local Professionals in Fiji{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -34,8 +34,8 @@
 {% block content %}
 <section class="hero">
   <div class="hero-inner">
-    <h1>Connecting Fijians with trusted local pros</h1>
-    <p>Post a job, compare quotes from trusted local pros, and get everyday tasks done across Fiji while supporting skilled people and small businesses in your community.</p>
+    <h1>Connecting Fijians with trusted local professionals</h1>
+    <p>Post a job, compare quotes from trusted local professionals, and get everyday tasks done across Fiji while supporting skilled people and small businesses in your community.</p>
     <div class="search-card">
       <form action="{% url 'browse_tasks' %}" method="get">
         <input type="text" name="q" placeholder="What service do you need?">
@@ -47,7 +47,7 @@
           <option>Nausori</option>
           <option>Labasa</option>
         </select>
-        <button type="submit">Search local pros</button>
+        <button type="submit">Search local professionals</button>
       </form>
     </div>
   </div>
@@ -73,7 +73,7 @@
       <h2 class="section-title">How it works</h2>
       <div class="grid-3">
         <div class="card"><div class="step-num">1</div><h3>Post a task</h3><p>Describe your job, set a budget, and choose when you need it done.</p></div>
-        <div class="card"><div class="step-num">2</div><h3>Choose your local pro</h3><p>Receive quotes from verified local pros. Compare ratings and price.</p></div>
+        <div class="card"><div class="step-num">2</div><h3>Choose your local professional</h3><p>Receive quotes from verified local professionals. Compare ratings and price.</p></div>
         <div class="card"><div class="step-num">3</div><h3>Get it done</h3><p>Book the job, communicate via messages, and review when complete.</p></div>
       </div>
     </section>
@@ -88,10 +88,10 @@
 
 <div class="cta-band">
   <h2>Ready to get started?</h2>
-  <p>Join the Coconut Wireless Network and connect with trusted local pros across Fiji.</p>
+  <p>Join the Coconut Wireless Network and connect with trusted local professionals across Fiji.</p>
   <div class="cta-pair">
-    <a href="{% url 'register_client' %}" class="cta-btn-w">I need a local pro</a>
-    <a href="{% url 'register_tradie' %}" class="cta-btn-o">I'm a local pro</a>
+    <a href="{% url 'register_client' %}" class="cta-btn-w">I need a local professional</a>
+    <a href="{% url 'register_tradie' %}" class="cta-btn-o">I'm a local professional</a>
   </div>
 </div>
 {% endblock %}

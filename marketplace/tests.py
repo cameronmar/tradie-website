@@ -303,7 +303,25 @@ class ClosedBetaAndApprovalFlowTests(TestCase):
         self.assertEqual(user.tradie_profile.verification_status, TradieProfile.VERIFICATION_PENDING)
         self.assertFalse(user.tradie_profile.documents_verified)
 
-    def test_pending_tradie_cannot_submit_quote(self):
+    def test_pending_tradie_can_submit_quote(self):
+        # Pending tradies may browse and quote while awaiting verification —
+        # clients see a "Pending verification" badge instead of being blocked.
+        self.client.login(username=self.tradie_user.email, password='pass12345')
+        response = self.client.post(
+            reverse('submit_quote', args=[self.task.pk]),
+            {
+                'price': '120.00',
+                'message': 'Can complete this week',
+                'quote_includes': 'labour_only',
+            },
+            secure=True,
+        )
+        self.assertRedirects(response, reverse('task_detail', args=[self.task.pk]), fetch_redirect_response=False)
+        self.assertTrue(Quote.objects.filter(task=self.task, tradie=self.tradie_user).exists())
+
+    def test_rejected_tradie_cannot_submit_quote(self):
+        self.tradie_profile.verification_status = TradieProfile.VERIFICATION_REJECTED
+        self.tradie_profile.save()
         self.client.login(username=self.tradie_user.email, password='pass12345')
         response = self.client.post(
             reverse('submit_quote', args=[self.task.pk]),

@@ -1,5 +1,5 @@
 {% extends "marketplace/base.html" %}
-{% block title %}Local Pro Sign Up – Coconut Wireless Network{% endblock %}
+{% block title %}Local Professional Sign Up – The Coconut Wireless Network{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -27,18 +27,21 @@
 .upload-field .hint{margin-top:4px;font-size:.78rem;color:var(--muted);}
 .conditional-doc{display:none;}
 .required-badge{font-size:.75rem;background:#e8f7ff;color:var(--blue);border-radius:6px;padding:2px 7px;margin-left:6px;font-weight:600;}
+.pw-wrap{position:relative;}
+.pw-wrap input{padding-right:38px;}
+.pw-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1rem;color:var(--muted);padding:4px;line-height:1;}
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container reg-page">
   <div class="reg-wrap">
-    <h1>Join as a Local Pro</h1>
+    <h1>Join as a Local Professional</h1>
     <p class="sub">Looking to hire? <a href="{% url 'register_client' %}">Sign up as a client</a> &nbsp;|&nbsp; Already have an account? <a href="{% url 'login' %}">Log in</a></p>
     <div class="info-band">✅ Free to join · Get notified of jobs near you · Only pay when you win work</div>
     {% if closed_beta_enabled and beta_gate_tradies %}
     <div class="info-band" style="background:#fffaf0;color:#7a4f00;border:1px solid #ffe2a8;">
-      Closed beta access is invite-only. Use your approved email to register as a local pro.
+      Closed beta access is invite-only. Use your approved email to register as a local professional.
     </div>
     {% endif %}
 
@@ -57,8 +60,20 @@
           <div class="field"><label>Town / Service Area</label>{{ form.town }}{% for e in form.town.errors %}<div class="field-error">{{e}}</div>{% endfor %}</div>
         </div>
         <div class="row2">
-          <div class="field"><label>Password</label>{{ form.password }}</div>
-          <div class="field"><label>Confirm password</label>{{ form.password_confirm }}</div>
+          <div class="field">
+            <label>Password</label>
+            <div class="pw-wrap">
+              {{ form.password }}
+              <button type="button" class="pw-toggle" data-target="id_password" aria-label="Show password">👁</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Confirm password</label>
+            <div class="pw-wrap">
+              {{ form.password_confirm }}
+              <button type="button" class="pw-toggle" data-target="id_password_confirm" aria-label="Show password">👁</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -175,7 +190,7 @@
       </div>
       {% for e in form.accepted_invoicing_terms.errors %}<div class="field-error" style="margin-bottom:8px;">{{ e }}</div>{% endfor %}
 
-      <button type="submit" class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem;">Create local pro account →</button>
+      <button type="submit" class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem;">Create local professional account →</button>
     </form>
   </div>
 </div>
@@ -195,5 +210,15 @@
   grid.addEventListener('change', update);
   update();
 })();
+
+document.querySelectorAll('.pw-toggle').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var input = document.getElementById(btn.dataset.target);
+    if (!input) return;
+    var showing = input.type === 'text';
+    input.type = showing ? 'password' : 'text';
+    btn.textContent = showing ? '👁' : '🙈';
+  });
+});
 </script>
 {% endblock %}

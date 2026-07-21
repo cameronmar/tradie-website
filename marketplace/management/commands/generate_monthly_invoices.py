@@ -1,7 +1,7 @@
 """
 Management command: python manage.py generate_monthly_invoices
 
-Generates one DRAFT invoice per local pro for all eligible pending platform
+Generates one DRAFT invoice per local professional for all eligible pending platform
 fees in a calendar month. Invoices are NOT sent automatically — an admin must
 review and send each one from /admin/marketplace/invoice/.
 
@@ -19,7 +19,7 @@ from marketplace.utils import create_weekly_invoices
 
 class Command(BaseCommand):
     help = (
-        'Generate draft invoices for all local pros with pending platform fees '
+        'Generate draft invoices for all local professionals with pending platform fees '
         'for a calendar month (default: the previous calendar month).'
     )
 
@@ -53,6 +53,6 @@ class Command(BaseCommand):
             ))
         else:
             self.stdout.write(self.style.WARNING(
-                f'No local pros had eligible pending fees for {period_start} to {period_end}. '
+                f'No local professionals had eligible pending fees for {period_start} to {period_end}. '
                 f'No invoices were generated.'
             ))

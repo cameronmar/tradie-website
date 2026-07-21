@@ -126,6 +126,12 @@ class TradieProfile(models.Model):
     def is_approved(self):
         return self.verification_status == self.VERIFICATION_APPROVED
 
+    def can_quote(self):
+        """Pending tradies may browse and quote while awaiting verification —
+        only rejected/suspended accounts are blocked. Clients see a pending
+        badge on their profile and quotes in the meantime."""
+        return self.verification_status in (self.VERIFICATION_PENDING, self.VERIFICATION_APPROVED)
+
     def trades_display(self):
         lookup = TradeCategory.get_label_map()
         return [lookup.get(t, t) for t in (self.trades or [])]
@@ -265,8 +271,8 @@ class Task(models.Model):
     ])
     materials_responsibility = models.CharField(max_length=50, blank=True, choices=[
         ('client_will_supply', 'Client will supply materials'),
-        ('provider_should_supply', 'Local pro should supply materials'),
-        ('provider_to_advise_after_inspection', 'Local pro should advise after inspection'),
+        ('provider_should_supply', 'Local professional should supply materials'),
+        ('provider_to_advise_after_inspection', 'Local professional should advise after inspection'),
         ('not_applicable', 'Not applicable'),
         ('not_sure', 'Not sure'),
     ])
