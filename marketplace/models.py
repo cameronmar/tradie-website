@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.core.cache import cache
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 
@@ -189,6 +190,8 @@ class TradeCategory(models.Model):
     parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='children')
     active = models.BooleanField(default=True)
 
+    CHOICES_CACHE_KEY = 'trade_category_choices'
+
     class Meta:
         verbose_name = 'Service Category'
         verbose_name_plural = 'Service Categories'
@@ -196,6 +199,14 @@ class TradeCategory(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        cache.delete(self.CHOICES_CACHE_KEY)
+
+    def delete(self, *args, **kwargs):
+        super().delete(*args, **kwargs)
+        cache.delete(self.CHOICES_CACHE_KEY)
 
     @classmethod
     def get_choices(cls):
@@ -206,12 +217,21 @@ class TradeCategory(models.Model):
         picker and display label without a code change. Falls back to the
         static TRADE_CHOICES seed list only if the table is empty (e.g. a
         fresh install before migrations have seeded it).
+
+        Cached (short TTL, cleared on save/delete) since this is called once
+        per task on every list page via Task.category_label — uncached, that
+        was a fresh query per row rendered.
         """
+        cached = cache.get(cls.CHOICES_CACHE_KEY)
+        if cached is not None:
+            return cached
         rows = list(cls.objects.filter(active=True).order_by('name').values_list('slug', 'icon', 'name'))
         if not rows:
             from .constants import TRADE_CHOICES
             return TRADE_CHOICES
-        return [(slug, f'{icon} {name}'.strip()) for slug, icon, name in rows]
+        choices = [(slug, f'{icon} {name}'.strip()) for slug, icon, name in rows]
+        cache.set(cls.CHOICES_CACHE_KEY, choices, 300)
+        return choices
 
     @classmethod
     def get_label_map(cls):
@@ -237,13 +257,13 @@ class Task(models.Model):
 
     client          = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tasks')
     title           = models.CharField(max_length=200)
-    category        = models.CharField(max_length=20, blank=True)  # Slug into TradeCategory; see category_label
+    category        = models.CharField(max_length=20, blank=True, db_index=True)  # Slug into TradeCategory; see category_label
     categories      = models.ManyToManyField(TradeCategory, related_name='tasks', blank=True)  # New multi-category
     description     = models.TextField()
     budget          = models.DecimalField(max_digits=10, decimal_places=2)
-    town            = models.CharField(max_length=50, choices=TOWN_CHOICES)
+    town            = models.CharField(max_length=50, choices=TOWN_CHOICES, db_index=True)
     preferred_date  = models.DateField(null=True, blank=True)
-    status          = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_OPEN)
+    status          = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_OPEN, db_index=True)
     assigned_tradie = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_tasks'
     )
@@ -364,7 +384,7 @@ class Quote(models.Model):
     tradie                          = models.ForeignKey(User, on_delete=models.CASCADE, related_name='quotes')
     price                           = models.DecimalField(max_digits=10, decimal_places=2)
     message                         = models.TextField()
-    status                          = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    status                          = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
     # New: Quote calculator and fee tracking
     minimum_take_home_amount        = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     customer_facing_quote           = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -700,7 +720,7 @@ class PlatformFee(models.Model):
     gross_fee_amount   = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)  # Before discount
     discount_amount    = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
     fee_amount         = models.DecimalField(max_digits=10, decimal_places=2)  # What's actually owed (after discount)
-    status             = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    status             = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
     created_at         = models.DateTimeField(auto_now_add=True)
 
     class Meta:
