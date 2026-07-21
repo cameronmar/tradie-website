@@ -1,5 +1,5 @@
 {% extends "marketplace/base.html" %}
-{% block title %}Billing – Coconut Wireless{% endblock %}
+{% block title %}Billing – Coconut Wireless Network{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -64,7 +64,7 @@ footer{display:none;}
 
   <main class="main">
     <div class="page-title">Billing</div>
-    <p class="page-sub">Your Coconut Wireless platform fee invoices.</p>
+    <p class="page-sub">Your Coconut Wireless Network platform fee invoices.</p>
 
     {% if summary.is_payment_restricted %}
     <div class="restricted-banner">
@@ -117,7 +117,7 @@ footer{display:none;}
         {% for notif in invoice.notifications.all %}
           {% if notif.channel == 'in_platform' %}
           <div class="msg-box">
-            <div class="msg-hdr">Message from Coconut Wireless</div>
+            <div class="msg-hdr">Message from the Coconut Wireless Network</div>
             {{ notif.body }}
           </div>
           {% endif %}

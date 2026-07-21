@@ -1,5 +1,5 @@
 {% extends "marketplace/base.html" %}
-{% block title %}Job Feedback – Coconut Wireless{% endblock %}
+{% block title %}Job Feedback – Coconut Wireless Network{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -32,7 +32,7 @@
 
   <div class="priv-banner">
     🔒 <strong>This feedback is private.</strong> It will never be shown to {{ task.client.first_name }} or on any public page.
-    It is used only by the Coconut Wireless admin team for dispute resolution and platform improvement.
+    It is used only by the Coconut Wireless Network admin team for dispute resolution and platform improvement.
   </div>
 
   <form method="post">
@@ -56,7 +56,7 @@
     <div class="comment-card">
       <h2>Notes <span style="color:var(--muted);font-weight:400">(optional)</span></h2>
       {{ form.comment }}
-      <div class="hint" style="margin-top:6px;">Only visible to Coconut Wireless admin for dispute handling.</div>
+      <div class="hint" style="margin-top:6px;">Only visible to Coconut Wireless Network admin for dispute handling.</div>
     </div>
 
     {% if form.non_field_errors %}<div class="field-error" style="margin-bottom:12px;">{{ form.non_field_errors }}</div>{% endif %}

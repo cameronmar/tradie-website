@@ -299,7 +299,7 @@ def build_invoice_line_description(fee, settings=None):
     ]
     if rule.startswith('Large job'):
         lines.append(f'Fee rule: {rule}')
-    lines.append(f'Coconut Wireless fee: FJD ${fee.fee_amount:.2f}')
+    lines.append(f'Coconut Wireless Network fee: FJD ${fee.fee_amount:.2f}')
     return '\n'.join(lines)
 
 
@@ -386,25 +386,25 @@ def send_invoice_notifications(invoice):
         for line in lines
     )
 
-    subject = f'Coconut Wireless invoice {invoice.invoice_number}'
+    subject = f'Coconut Wireless Network invoice {invoice.invoice_number}'
 
     body = (
         f'Bula {tradie.first_name},\n\n'
-        f'Your Coconut Wireless invoice {invoice.invoice_number} has been issued '
+        f'Your Coconut Wireless Network invoice {invoice.invoice_number} has been issued '
         f'for the period {period_str}.\n\n'
         f'Invoice total: FJD ${invoice.total_amount:.2f}\n'
         f'Due date: {invoice.due_date.strftime("%d %B %Y")}\n\n'
         f'Jobs included:\n{job_lines}\n\n'
         f'Please arrange payment by bank transfer or M-PAiSA.\n\n'
         f'You can view the full invoice in your Billing section.\n\n'
-        f'Vinaka,\nCoconut Wireless Team'
+        f'Vinaka,\nCoconut Wireless Network Team'
     )
 
     sms_body = (
-        f'Coconut Wireless invoice {invoice.invoice_number} issued. '
+        f'Coconut Wireless Network invoice {invoice.invoice_number} issued. '
         f'Amount: FJD ${invoice.total_amount:.2f}. '
         f'Due: {invoice.due_date.strftime("%d %B %Y")}. '
-        f'Check your Coconut Wireless messages/email. Vinaka.'
+        f'Check your Coconut Wireless Network messages/email. Vinaka.'
     )
 
     InvoiceNotification.objects.create(
@@ -555,23 +555,23 @@ def send_welcome_notice(user):
     from django.core.mail import send_mail
 
     if user.role == User.ROLE_TRADIE:
-        subject = 'Welcome to Coconut Wireless — you are set up as a Local Pro'
+        subject = 'Welcome to the Coconut Wireless Network — you are set up as a Local Pro'
         body = (
             f'Bula {user.first_name},\n\n'
-            f'Welcome to Coconut Wireless! Your local pro account has been created.\n\n'
+            f'Welcome to the Coconut Wireless Network! Your local pro account has been created.\n\n'
             f'Your documents are now pending review — once verified, you can start '
             f'quoting on tasks posted by clients across Fiji.\n\n'
             f'In the meantime, you can complete your profile and browse open tasks '
             f'in your service towns from your dashboard.\n\n'
-            f'Vinaka,\nCoconut Wireless Team'
+            f'Vinaka,\nCoconut Wireless Network Team'
         )
     else:
-        subject = 'Welcome to Coconut Wireless'
+        subject = 'Welcome to the Coconut Wireless Network'
         body = (
             f'Bula {user.first_name},\n\n'
-            f'Welcome to Coconut Wireless! Your client account is ready.\n\n'
+            f'Welcome to the Coconut Wireless Network! Your client account is ready.\n\n'
             f'Post your first task to get quotes from trusted local pros in your area.\n\n'
-            f'Vinaka,\nCoconut Wireless Team'
+            f'Vinaka,\nCoconut Wireless Network Team'
         )
 
     # Log an in-platform notice (always — this is what the user sees in their
