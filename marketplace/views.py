@@ -25,6 +25,7 @@ from .constants import (
 )
 from .forms import (
     ClientRegistrationForm,
+    ContactSupportForm,
     LoginForm,
     MessageForm,
     PrivateReviewForm,
@@ -141,23 +142,38 @@ def privacy(request):
 
 def contact_support(request):
     """
-    Sitewide "Contact" link (footer). Notifies the admin the moment someone
-    clicks it, then shows a simple confirmation — no form to fill in first.
+    Sitewide "Contact" link (footer). Lets clients and local pros send a
+    message straight to the admin inbox, Reply-To set to their own address
+    so replying from the admin's inbox goes directly back to them.
     """
-    if request.user.is_authenticated:
-        who = f'{request.user.full_name} ({request.user.email}, {request.user.get_role_display()})'
+    if request.method == 'POST':
+        form = ContactSupportForm(request.POST)
+        if form.is_valid():
+            cd = form.cleaned_data
+            if request.user.is_authenticated:
+                who = f'{request.user.full_name} ({request.user.email}, {request.user.get_role_display()})'
+            else:
+                who = f'{cd["name"]} ({cd["email"]}) — not logged in'
+            notify_admin(
+                subject=f'Contact form: {cd["subject"]}',
+                body=(
+                    f'From: {who}\n'
+                    f'Time: {timezone.now().strftime("%d %B %Y, %H:%M")} UTC\n\n'
+                    f'{cd["message"]}'
+                ),
+                reply_to=[cd['email']],
+            )
+            flash.success(request, "Thanks for reaching out — we've been notified and will be in touch soon.")
+            return redirect('contact_support')
+        for err in form.errors.values():
+            flash.error(request, str(err))
     else:
-        who = 'Anonymous visitor (not logged in)'
+        initial = {}
+        if request.user.is_authenticated:
+            initial = {'name': request.user.full_name, 'email': request.user.email}
+        form = ContactSupportForm(initial=initial)
 
-    notify_admin(
-        subject='Support link clicked on Coconut Wireless',
-        body=(
-            f'{who} clicked the Contact/Support link.\n\n'
-            f'Page they came from: {request.META.get("HTTP_REFERER", "unknown")}\n'
-            f'Time: {timezone.now().strftime("%d %B %Y, %H:%M")} UTC'
-        ),
-    )
-    return render(request, 'marketplace/support_contact.html')
+    return render(request, 'marketplace/support_contact.html', {'form': form})
 
 
 def healthz(request):

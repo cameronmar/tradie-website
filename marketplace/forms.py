@@ -372,3 +372,14 @@ class PrivateReviewForm(forms.Form):
         required=False,
         widget=forms.Textarea(attrs={'class': 'form-input', 'rows': 3, 'placeholder': 'Optional note for dispute records…'})
     )
+
+
+# ── Contact / Support form ───────────────────────────────────────────────────
+
+class ContactSupportForm(forms.Form):
+    name    = forms.CharField(max_length=100, widget=_input('Your name'))
+    email   = forms.EmailField(widget=_input('you@example.fj', type_='email'))
+    subject = forms.CharField(max_length=150, widget=_input('What can we help with?'))
+    message = forms.CharField(
+        widget=forms.Textarea(attrs={'class': 'form-input', 'rows': 5, 'placeholder': 'Tell us more…'})
+    )
