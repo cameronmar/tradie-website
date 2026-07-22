@@ -28,6 +28,7 @@ from .forms import (
     ContactSupportForm,
     LoginForm,
     MessageForm,
+    NotificationPreferencesForm,
     PrivateReviewForm,
     PublicReviewForm,
     QuoteForm,
@@ -59,6 +60,9 @@ from .utils import (
     get_active_platform_settings,
     get_tradie_billing_summary,
     notify_admin,
+    notify_client_new_quote,
+    notify_matching_tradies_new_job,
+    notify_message_recipient,
     send_welcome_notice,
 )
 
@@ -424,6 +428,7 @@ def post_task(request):
         task.client = request.user
         task.save()
         form.save_m2m()
+        notify_matching_tradies_new_job(task)
         flash.success(request, 'Task posted! Local pros will start sending quotes soon.')
         return redirect('task_detail', pk=task.pk)
     return render(request, 'marketplace/post_task.html', {
@@ -607,6 +612,7 @@ def submit_quote(request, pk):
             q.estimated_provider_take_home = (q.price - effective_fee).quantize(Decimal('0.01'))
             q.estimated_tradie_take_home = q.estimated_provider_take_home
         q.save()
+        notify_client_new_quote(q)
         flash.success(request, 'Quote submitted! The client will be in touch.')
     else:
         for err in form.errors.values():
@@ -858,6 +864,16 @@ def notices(request):
     })
 
 
+@login_required
+def notification_settings(request):
+    form = NotificationPreferencesForm(request.POST or None, instance=request.user)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        flash.success(request, 'Notification preferences updated.')
+        return redirect('notification_settings')
+    return render(request, 'marketplace/notification_settings.html', {'form': form})
+
+
 # ── Messages inbox ────────────────────────────────────────────────────────────
 
 @login_required
@@ -886,10 +902,11 @@ def conversation(request, tpk, opk):
     if request.method == 'POST':
         form = MessageForm(request.POST)
         if form.is_valid():
-            Message.objects.create(
+            msg = Message.objects.create(
                 task=task, sender=u, recipient=other_user,
                 body=form.cleaned_data['body'],
             )
+            notify_message_recipient(msg)
         return redirect('conversation', tpk=tpk, opk=opk)
 
     chat_messages = Message.objects.filter(

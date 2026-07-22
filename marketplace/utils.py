@@ -8,7 +8,7 @@ from django.db import transaction
 
 from .models import (
     PlatformSettings, PlatformFee, Invoice, InvoiceLine, InvoiceNotification, Quote, Task,
-    PlatformNotice, User,
+    PlatformNotice, TradieProfile, User,
 )
 
 
@@ -670,3 +670,127 @@ def notify_admin(subject, body, reply_to=None):
         except ImportError:
             pass
         return False
+
+
+def _send_email_notice(recipient, subject, body, notice_type):
+    """
+    Send a plain-text email and, only on success, log a matching email-channel
+    PlatformNotice for the audit trail (same per-channel logging pattern used
+    elsewhere). Best-effort — failures are swallowed, never raised, since these
+    are all optional extra-channel notifications gated by a user preference.
+    """
+    from django.conf import settings as django_settings
+    from django.core.mail import send_mail
+
+    if not recipient.email:
+        return False
+    try:
+        send_mail(
+            subject, body,
+            getattr(django_settings, 'DEFAULT_FROM_EMAIL', 'noreply@coconutwireless.fj'),
+            [recipient.email],
+            fail_silently=False,
+        )
+        PlatformNotice.objects.create(
+            recipient=recipient, notice_type=notice_type,
+            channel=PlatformNotice.CHANNEL_EMAIL, subject=subject, body=body,
+        )
+        return True
+    except Exception as exc:
+        import sys
+        import traceback
+        print(f'_send_email_notice: send failed: {exc!r}', flush=True)
+        traceback.print_exc()
+        sys.stderr.flush()
+        try:
+            import sentry_sdk
+            sentry_sdk.capture_exception(exc)
+        except ImportError:
+            pass
+        return False
+
+
+def notify_client_new_quote(quote):
+    """
+    Notify a client that a new quote was submitted on their task. Always logs
+    an in-platform notice (this is about their own task); email is sent only
+    if the client has opted in (User.notify_email_new_quote).
+    """
+    task = quote.task
+    client = task.client
+    subject = f'New quote on "{task.title}"'
+    body = (
+        f'Bula {client.first_name},\n\n'
+        f'{quote.tradie.full_name} sent you a quote of FJD ${quote.price} for "{task.title}".\n\n'
+        f'{quote.message}\n\n'
+        f'Log in to view the full quote and respond.\n\n'
+        f'Vinaka,\nThe Coconut Wireless Network Team'
+    )
+    PlatformNotice.objects.create(
+        recipient=client, notice_type=PlatformNotice.TYPE_NEW_QUOTE,
+        channel=PlatformNotice.CHANNEL_IN_PLATFORM, subject=subject, body=body,
+    )
+    if client.notify_email_new_quote:
+        _send_email_notice(client, subject, body, PlatformNotice.TYPE_NEW_QUOTE)
+
+
+def notify_message_recipient(message):
+    """
+    Email a user that they've received a new message. Messages already live
+    in the in-app inbox (Messages), so no in-platform notice is logged here —
+    email is purely the optional extra channel, gated by
+    User.notify_email_new_message.
+    """
+    recipient = message.recipient
+    if not recipient.notify_email_new_message:
+        return
+    subject = f'New message from {message.sender.full_name}'
+    body = (
+        f'Bula {recipient.first_name},\n\n'
+        f'{message.sender.full_name} sent you a message about "{message.task.title}":\n\n'
+        f'{message.body}\n\n'
+        f'Log in to reply.\n\n'
+        f'Vinaka,\nThe Coconut Wireless Network Team'
+    )
+    _send_email_notice(recipient, subject, body, PlatformNotice.TYPE_NEW_MESSAGE)
+
+
+def notify_matching_tradies_new_job(task):
+    """
+    Notify local professionals whose trades and service towns match a newly
+    posted task. Opt-in only (User.notify_email_new_job_match defaults to
+    False) — both the in-platform notice and the email are gated by the same
+    preference, since neither has any other natural home in the UI and an
+    unwanted in-app notice would be just as unwelcome as an unwanted email.
+    """
+    task_categories = {task.category} if task.category else set()
+    task_categories |= set(task.categories.values_list('slug', flat=True))
+    if not task_categories:
+        return
+
+    subject = f'New job posted: "{task.title}"'
+    profiles = (
+        TradieProfile.objects.filter(user__notify_email_new_job_match=True)
+        .select_related('user')
+    )
+    for profile in profiles:
+        if not profile.can_quote():
+            continue
+        if task.town not in (profile.service_towns or []):
+            continue
+        if not (task_categories & set(profile.trades or [])):
+            continue
+
+        body = (
+            f'Bula {profile.user.first_name},\n\n'
+            f'A new job matching your trades was just posted in {task.get_town_display()}:\n\n'
+            f'"{task.title}"\n{task.description[:200]}\n\n'
+            f'Budget: FJD ${task.budget}\n\n'
+            f'Log in to view the task and send a quote.\n\n'
+            f'Vinaka,\nThe Coconut Wireless Network Team'
+        )
+        PlatformNotice.objects.create(
+            recipient=profile.user, notice_type=PlatformNotice.TYPE_NEW_JOB_MATCH,
+            channel=PlatformNotice.CHANNEL_IN_PLATFORM, subject=subject, body=body,
+        )
+        _send_email_notice(profile.user, subject, body, PlatformNotice.TYPE_NEW_JOB_MATCH)

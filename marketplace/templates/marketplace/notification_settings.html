@@ -1,0 +1,55 @@
+{% extends "marketplace/base.html" %}
+{% block title %}Notification Settings – The Coconut Wireless Network{% endblock %}
+
+{% block extra_css %}
+<style>
+.settings-page{max-width:600px;margin:0 auto;padding:28px 20px 50px;}
+.page-title{font-size:1.4rem;font-weight:700;margin:0 0 4px;}
+.page-sub{color:var(--muted);font-size:.9rem;margin:0 0 22px;}
+.spam-tip{background:#fff8e6;border:1px solid #f5a623;border-radius:10px;padding:12px 16px;font-size:.85rem;color:#8a6200;margin-bottom:22px;}
+.check-row{display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid #f0f5f8;}
+.check-row:last-of-type{border-bottom:none;}
+.check-row input{margin-top:3px;accent-color:var(--blue);width:18px;height:18px;flex-shrink:0;}
+.check-row label{font-size:.9rem;font-weight:600;cursor:pointer;}
+.check-row .hint{font-size:.8rem;color:var(--muted);margin-top:2px;font-weight:400;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="settings-page">
+  <div class="page-title">Notification settings</div>
+  <p class="page-sub">Choose which events send you an email. These are always logged in your <a href="{% url 'notices' %}">Notices</a> inbox regardless — email is an optional extra.</p>
+
+  <div class="spam-tip">📬 <strong>Tip:</strong> If you don't see our emails arrive, please check your spam/junk folder and mark them as "not spam" so future notifications reach your inbox.</div>
+
+  <div class="card">
+    <form method="post">
+      {% csrf_token %}
+      <div class="check-row">
+        {{ form.notify_email_new_quote }}
+        <div>
+          <label for="{{ form.notify_email_new_quote.id_for_label }}">Local professional quotes on my job</label>
+          <div class="hint">Get an email as soon as someone sends you a quote.</div>
+        </div>
+      </div>
+      <div class="check-row">
+        {{ form.notify_email_new_message }}
+        <div>
+          <label for="{{ form.notify_email_new_message.id_for_label }}">New message received</label>
+          <div class="hint">Get an email when someone sends you a message.</div>
+        </div>
+      </div>
+      {% if user.role == 'tradie' %}
+      <div class="check-row">
+        {{ form.notify_email_new_job_match }}
+        <div>
+          <label for="{{ form.notify_email_new_job_match.id_for_label }}">New job posted in my trades and towns</label>
+          <div class="hint">Get an email when a task matching your selected trades and service towns is posted. Off by default to avoid too many emails — turn on if you'd like early notice of new work.</div>
+        </div>
+      </div>
+      {% endif %}
+      <button type="submit" class="btn btn-primary" style="width:100%;margin-top:18px;">Save preferences</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

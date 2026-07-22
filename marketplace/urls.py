@@ -37,6 +37,7 @@ urlpatterns = [
     path('profile/<int:pk>/',      views.tradie_profile, name='tradie_profile'),
     # Notices
     path('notices/',                         views.notices,      name='notices'),
+    path('notices/settings/',                views.notification_settings, name='notification_settings'),
     # Messages
     path('messages/',                        views.inbox,        name='inbox'),
     path('messages/<int:tpk>/<int:opk>/',    views.conversation, name='conversation'),

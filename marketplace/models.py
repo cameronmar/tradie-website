@@ -52,6 +52,12 @@ class User(AbstractUser):
     mobile = models.CharField(max_length=20, blank=True)
     town   = models.CharField(max_length=50, blank=True)
 
+    # Email notification preferences — always logged in-app regardless (see
+    # Notices), these only control the optional extra email channel.
+    notify_email_new_quote     = models.BooleanField(default=True, verbose_name='Email me when a local professional quotes on my job')
+    notify_email_new_message   = models.BooleanField(default=True, verbose_name='Email me when I receive a new message')
+    notify_email_new_job_match = models.BooleanField(default=False, verbose_name='Email me when a new job matching my trades and towns is posted')
+
     USERNAME_FIELD  = 'email'
     REQUIRED_FIELDS = []
 
@@ -968,6 +974,9 @@ class PlatformNotice(models.Model):
     TYPE_CIRCUMVENTION     = 'circumvention'
     TYPE_TERMS_UPDATE      = 'terms_update'
     TYPE_GENERAL           = 'general'
+    TYPE_NEW_QUOTE         = 'new_quote'
+    TYPE_NEW_MESSAGE       = 'new_message'
+    TYPE_NEW_JOB_MATCH     = 'new_job_match'
     TYPE_CHOICES = [
         (TYPE_WELCOME,          'Welcome Message'),
         (TYPE_INVOICE,          'Invoice Notice'),
@@ -975,6 +984,9 @@ class PlatformNotice(models.Model):
         (TYPE_CIRCUMVENTION,    'Platform Circumvention Notice'),
         (TYPE_TERMS_UPDATE,     'Terms Update Notice'),
         (TYPE_GENERAL,          'General Notice'),
+        (TYPE_NEW_QUOTE,        'New Quote Received'),
+        (TYPE_NEW_MESSAGE,      'New Message'),
+        (TYPE_NEW_JOB_MATCH,    'New Job Match'),
     ]
 
     CHANNEL_EMAIL       = 'email'

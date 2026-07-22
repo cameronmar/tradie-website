@@ -383,3 +383,16 @@ class ContactSupportForm(forms.Form):
     message = forms.CharField(
         widget=forms.Textarea(attrs={'class': 'form-input', 'rows': 5, 'placeholder': 'Tell us more…'})
     )
+
+
+# ── Notification preferences ─────────────────────────────────────────────────
+
+class NotificationPreferencesForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ['notify_email_new_quote', 'notify_email_new_message', 'notify_email_new_job_match']
+        widgets = {
+            'notify_email_new_quote':     forms.CheckboxInput(),
+            'notify_email_new_message':   forms.CheckboxInput(),
+            'notify_email_new_job_match': forms.CheckboxInput(),
+        }

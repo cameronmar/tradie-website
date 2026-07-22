@@ -19,7 +19,7 @@ footer{display:none;}
 {% block content %}
 <div class="notices-page">
   <div class="page-title">Notices</div>
-  <p class="page-sub">Messages from the Coconut Wireless Network team.</p>
+  <p class="page-sub">Messages from the Coconut Wireless Network team. <a href="{% url 'notification_settings' %}">Notification settings →</a></p>
 
   {% if notices %}
     {% for n in notices %}
