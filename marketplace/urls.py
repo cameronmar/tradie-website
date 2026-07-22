@@ -35,6 +35,7 @@ urlpatterns = [
     path('tasks/<int:pk>/rate/client/', views.rate_client, name='rate_client'),
     # Profile
     path('profile/<int:pk>/',      views.tradie_profile, name='tradie_profile'),
+    path('professionals/',         views.browse_tradies, name='browse_tradies'),
     # Notices
     path('notices/',                         views.notices,      name='notices'),
     path('notices/settings/',                views.notification_settings, name='notification_settings'),

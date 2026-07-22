@@ -429,6 +429,51 @@ def browse_tasks(request):
     })
 
 
+# ── Browse local professionals ──────────────────────────────────────────────────
+
+def browse_tradies(request):
+    # Trade/town are JSONField lists — same cross-DB portability limitation
+    # noted elsewhere (Sponsor.placements, MarketListing.available_dates):
+    # containment queries don't behave identically on SQLite vs Postgres, so
+    # those two filters are applied in Python over the already-narrowed
+    # (approved-only, optionally keyword-filtered) queryset rather than at
+    # the DB level.
+    category = request.GET.get('category', '').strip()
+    town     = request.GET.get('town', '').strip()
+    keyword  = request.GET.get('q', '').strip()
+
+    qs = (
+        TradieProfile.objects.filter(verification_status=TradieProfile.VERIFICATION_APPROVED)
+        .select_related('user')
+        .order_by('business_name')
+    )
+    if keyword:
+        qs = qs.filter(
+            Q(business_name__icontains=keyword) | Q(bio__icontains=keyword)
+            | Q(user__first_name__icontains=keyword) | Q(user__last_name__icontains=keyword)
+        )
+
+    profiles = list(qs)
+    if category:
+        profiles = [p for p in profiles if category in (p.trades or [])]
+    if town:
+        profiles = [p for p in profiles if town in (p.service_towns or [])]
+
+    for p in profiles:
+        breakdown = p.get_public_rating_breakdown()
+        p.overall_rating = round(breakdown['overall'], 1) if breakdown else None
+        p.review_count = p.public_completed_job_count()
+
+    return render(request, 'marketplace/browse_tradies.html', {
+        'profiles':         profiles,
+        'category_filter':  category,
+        'town_filter':      town,
+        'keyword_filter':   keyword,
+        'category_choices': TradeCategory.get_choices(),
+        'town_choices':     TOWN_CHOICES,
+    })
+
+
 # ── Post task ─────────────────────────────────────────────────────────────────
 
 @login_required

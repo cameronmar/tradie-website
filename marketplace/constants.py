@@ -17,6 +17,9 @@ TRADE_CHOICES = [
     ('mechanic',    '🛠️ Mechanic'),
     ('photographer','📸 Photographer'),
     ('makeup',      '💄 Makeup Artist'),
+    ('nanny',       '👶 Nanny'),
+    ('tutor',       '📚 Tutor'),
+    ('swim_coach',  '🏊 Swim Coach'),
 ]
 
 TOWN_CHOICES = [
