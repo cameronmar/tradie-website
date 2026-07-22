@@ -6,10 +6,12 @@
 <style>
 .hero{background:var(--blue-light);padding:48px 0 44px;text-align:center;}
 .hero-inner{max-width:1200px;margin:0 auto;padding:0 20px;}
-.hero-image{max-width:640px;margin:0 auto 24px;}
-.hero-image img{width:100%;height:auto;border-radius:16px;box-shadow:0 10px 34px rgba(0,20,40,.18);display:block;}
+.hero-image{max-width:640px;margin:0 auto 24px;aspect-ratio:609/513;background-size:cover;background-position:center;border-radius:16px;box-shadow:0 10px 34px rgba(0,20,40,.18);}
 .img-section{padding:0;}
-.img-section img{width:100%;height:auto;display:block;border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.1);}
+.img-bg{width:100%;background-size:cover;background-position:center;border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.1);}
+.img-network-benefits{aspect-ratio:486/513;}
+.img-why-choose{aspect-ratio:486/482;}
+.img-proudly-fijian{aspect-ratio:409/513;}
 .search-card{background:var(--white);border-radius:16px;box-shadow:0 8px 30px rgba(0,80,120,.18);padding:20px;max-width:680px;margin:0 auto;}
 .search-card form{display:flex;gap:10px;flex-wrap:wrap;}
 .search-card input,.search-card select{flex:1;min-width:150px;padding:12px 14px;border-radius:10px;border:1.5px solid #cce4ef;font-size:.94rem;outline:none;}
@@ -37,9 +39,7 @@
 {% block content %}
 <section class="hero">
   <div class="hero-inner">
-    <div class="hero-image">
-      <img src="{% static 'marketplace/images/01_connecting_fiji_building_together.png' %}" alt="Connecting Fiji, Building Together — the Coconut Wireless Network connects locals with trusted local professionals to get the job done, the Fijian way">
-    </div>
+    <div class="hero-image" style="background-image:url('{% static 'marketplace/images/01_connecting_fiji_building_together.png' %}')" role="img" aria-label="Connecting Fiji, Building Together — the Coconut Wireless Network connects locals with trusted local professionals to get the job done, the Fijian way"></div>
     <div class="search-card">
       <form action="{% url 'browse_tasks' %}" method="get">
         <input type="text" name="q" placeholder="What service do you need?">
@@ -60,7 +60,7 @@
 <main>
   <div class="container">
     <section class="section img-section" style="max-width:600px;margin:0 auto;">
-      <img src="{% static 'marketplace/images/03_network_benefits.png' %}" alt="The Coconut Wireless Network: Trusted Professionals, Quality Work, Easy Communication, Fair Pricing">
+      <div class="img-bg img-network-benefits" style="background-image:url('{% static 'marketplace/images/03_network_benefits.png' %}')" role="img" aria-label="The Coconut Wireless Network: Trusted Professionals, Quality Work, Easy Communication, Fair Pricing"></div>
     </section>
 
     <section class="section">
@@ -90,11 +90,11 @@
     </section>
 
     <section class="section img-section" style="max-width:480px;margin:0 auto;">
-      <img src="{% static 'marketplace/images/06_why_choose_the_network.png' %}" alt="Why choose the Coconut Wireless Network — Safe & Secure, Support Local, Built on Trust, Fijian Owned & Operated">
+      <div class="img-bg img-why-choose" style="background-image:url('{% static 'marketplace/images/06_why_choose_the_network.png' %}')" role="img" aria-label="Why choose the Coconut Wireless Network — Safe & Secure, Support Local, Built on Trust, Fijian Owned & Operated"></div>
     </section>
 
-    <section class="section img-section" style="max-width:900px;margin:0 auto;">
-      <img src="{% static 'marketplace/images/02_proudly_fijian.png' %}" alt="Proudly Fijian — supporting local livelihoods across our islands">
+    <section class="section img-section" style="max-width:400px;margin:0 auto;">
+      <div class="img-bg img-proudly-fijian" style="background-image:url('{% static 'marketplace/images/02_proudly_fijian.png' %}')" role="img" aria-label="Proudly Fijian — supporting local livelihoods across our islands"></div>
     </section>
   </div>
 </main>

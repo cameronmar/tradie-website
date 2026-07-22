@@ -45,9 +45,9 @@
 .cbtn-o{padding:13px 26px;background:transparent;color:var(--white);border:2px solid var(--white);border-radius:12px;font-size:.97rem;font-weight:700;cursor:pointer;text-decoration:none;}
 @media(max-width:600px){.hero h1{font-size:1.7rem;}}
 .team-photo{padding:36px 0 0;text-align:center;}
-.team-photo img{max-width:480px;width:100%;height:auto;border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.1);}
+.team-photo-bg{max-width:480px;width:100%;margin:0 auto;aspect-ratio:507/482;background-size:cover;background-position:center;border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.1);}
 .islands-section{max-width:520px;margin:0 auto;}
-.islands-section img{width:100%;height:auto;border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.1);display:block;}
+.islands-bg{width:100%;aspect-ratio:512/482;background-size:cover;background-position:center;border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.1);}
 </style>
 {% endblock %}
 
@@ -64,7 +64,7 @@
 </div>
 
 <div class="team-photo">
-  <img src="{% static 'marketplace/images/05_skilled_reliable_local.png' %}" alt="Skilled, reliable local professionals — our local professionals are here to help you get the job done">
+  <div class="team-photo-bg" style="background-image:url('{% static 'marketplace/images/05_skilled_reliable_local.png' %}')" role="img" aria-label="Skilled, reliable local professionals — our local professionals are here to help you get the job done"></div>
 </div>
 
 <div id="clientSection">
@@ -135,7 +135,7 @@
 </section>
 
 <section class="section islands-section">
-  <img src="{% static 'marketplace/images/04_from_the_islands.png' %}" alt="From the Islands, For the Islands — proudly connecting communities across Fiji">
+  <div class="islands-bg" style="background-image:url('{% static 'marketplace/images/04_from_the_islands.png' %}')" role="img" aria-label="From the Islands, For the Islands — proudly connecting communities across Fiji"></div>
 </section>
 
 <section class="section section-alt">
