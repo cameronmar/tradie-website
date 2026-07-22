@@ -57,6 +57,8 @@ class User(AbstractUser):
     notify_email_new_quote     = models.BooleanField(default=True, verbose_name='Email me when a local professional quotes on my job')
     notify_email_new_message   = models.BooleanField(default=True, verbose_name='Email me when I receive a new message')
     notify_email_new_job_match = models.BooleanField(default=False, verbose_name='Email me when a new job matching my trades and towns is posted')
+    notify_email_new_market_order    = models.BooleanField(default=True, verbose_name='Email me when someone orders from my Market listing')
+    notify_email_market_order_update = models.BooleanField(default=True, verbose_name='Email me when my Market order is accepted or declined')
 
     USERNAME_FIELD  = 'email'
     REQUIRED_FIELDS = []
@@ -392,6 +394,8 @@ class Quote(models.Model):
     message                         = models.TextField()
     status                          = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
     # New: Quote calculator and fee tracking
+    vat_applicable                  = models.BooleanField(default=False, verbose_name='VAT applicable')
+    vat_rate                        = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name='VAT rate (%)')
     minimum_take_home_amount        = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     customer_facing_quote           = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     estimated_platform_fee          = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -977,6 +981,8 @@ class PlatformNotice(models.Model):
     TYPE_NEW_QUOTE         = 'new_quote'
     TYPE_NEW_MESSAGE       = 'new_message'
     TYPE_NEW_JOB_MATCH     = 'new_job_match'
+    TYPE_NEW_MARKET_ORDER  = 'new_market_order'
+    TYPE_MARKET_ORDER_UPDATE = 'market_order_update'
     TYPE_CHOICES = [
         (TYPE_WELCOME,          'Welcome Message'),
         (TYPE_INVOICE,          'Invoice Notice'),
@@ -987,6 +993,8 @@ class PlatformNotice(models.Model):
         (TYPE_NEW_QUOTE,        'New Quote Received'),
         (TYPE_NEW_MESSAGE,      'New Message'),
         (TYPE_NEW_JOB_MATCH,    'New Job Match'),
+        (TYPE_NEW_MARKET_ORDER, 'New Market Order'),
+        (TYPE_MARKET_ORDER_UPDATE, 'Market Order Update'),
     ]
 
     CHANNEL_EMAIL       = 'email'
@@ -1013,6 +1021,157 @@ class PlatformNotice(models.Model):
 
     def __str__(self):
         return f'{self.get_notice_type_display()} → {self.recipient} – {self.subject}'
+
+
+# ── Market (local professionals selling items/serves, e.g. baked goods) ────────
+
+class MarketListing(models.Model):
+    FULFILLMENT_PICKUP   = 'pickup'
+    FULFILLMENT_DELIVERY = 'delivery'
+    FULFILLMENT_BOTH     = 'both'
+    FULFILLMENT_CHOICES = [
+        (FULFILLMENT_PICKUP,   'Pickup only'),
+        (FULFILLMENT_DELIVERY, 'Delivery only'),
+        (FULFILLMENT_BOTH,     'Pickup or delivery'),
+    ]
+
+    ORDER_MODE_AUTO     = 'auto'
+    ORDER_MODE_APPROVAL = 'approval'
+    ORDER_MODE_CHOICES = [
+        (ORDER_MODE_AUTO,     'Auto-accept orders'),
+        (ORDER_MODE_APPROVAL, 'Require my approval'),
+    ]
+
+    STATUS_ACTIVE = 'active'
+    STATUS_CLOSED = 'closed'
+    STATUS_CHOICES = [
+        (STATUS_ACTIVE, 'Active'),
+        (STATUS_CLOSED, 'Closed'),
+    ]
+
+    # Market's own content taxonomy — distinct from TradeCategory (which is
+    # for job/trade skills like "plumbing"), since Market items are physical
+    # goods for sale, not services.
+    CATEGORY_FOOD         = 'food'
+    CATEGORY_CLOTHES_TOYS = 'clothes_toys'
+    CATEGORY_FURNITURE    = 'furniture'
+    CATEGORY_TOOLS_PARTS  = 'tools_parts'
+    CATEGORY_OTHER        = 'other'
+    CATEGORY_CHOICES = [
+        (CATEGORY_FOOD,         '🍽️ Food'),
+        (CATEGORY_CLOTHES_TOYS, '🧸 Clothes & Toys'),
+        (CATEGORY_FURNITURE,    '🪑 Furniture'),
+        (CATEGORY_TOOLS_PARTS,  '🔧 Tools & Spare Parts'),
+        (CATEGORY_OTHER,        '📦 Other'),
+    ]
+
+    FOOD_TYPE_COOKED  = 'cooked'
+    FOOD_TYPE_PREMADE = 'premade'
+    FOOD_TYPE_PRODUCE = 'produce'
+    FOOD_TYPE_CHOICES = [
+        (FOOD_TYPE_COOKED,  'Cooked'),
+        (FOOD_TYPE_PREMADE, 'Premade (uncooked)'),
+        (FOOD_TYPE_PRODUCE, 'Produce'),
+    ]
+
+    seller      = models.ForeignKey(User, on_delete=models.CASCADE, related_name='market_listings')
+    category    = models.CharField(max_length=20, choices=CATEGORY_CHOICES, db_index=True)
+    food_type   = models.CharField(max_length=20, choices=FOOD_TYPE_CHOICES, blank=True, verbose_name='Food type (if category is Food)')
+    title       = models.CharField(max_length=150)
+    description = models.TextField(blank=True)
+    photo       = models.ImageField(upload_to='market_listings/%Y/%m/%d/', blank=True)
+
+    # Calculator inputs/results — all stored for transparency, same pattern as Quote's fee snapshot.
+    vat_applicable      = models.BooleanField(default=False, verbose_name='VAT applicable')
+    vat_rate            = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name='VAT rate (%)')
+    take_home_per_unit  = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Take-home per unit (FJD)')
+    price_per_unit      = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Buyer price per unit (FJD)')
+    fee_rate_at_listing = models.DecimalField(max_digits=5, decimal_places=2, verbose_name='Platform fee rate used (%)')
+
+    units_available = models.PositiveIntegerField()
+    units_sold       = models.PositiveIntegerField(default=0)
+
+    fulfillment_method = models.CharField(max_length=10, choices=FULFILLMENT_CHOICES, default=FULFILLMENT_PICKUP)
+    pickup_town          = models.CharField(max_length=50, blank=True, choices=TOWN_CHOICES)
+    delivery_towns         = models.JSONField(default=list, blank=True)  # list of town keys from TOWN_CHOICES
+
+    order_mode = models.CharField(max_length=10, choices=ORDER_MODE_CHOICES, default=ORDER_MODE_APPROVAL)
+    available_dates = models.JSONField(default=list)  # list of 'YYYY-MM-DD' strings the buyer must choose from
+
+    status     = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_ACTIVE, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Market Listing'
+        verbose_name_plural = 'Market Listings'
+
+    def __str__(self):
+        return f'{self.title} ({self.seller})'
+
+    def units_remaining(self):
+        return max(self.units_available - self.units_sold, 0)
+
+    def has_future_dates(self):
+        """Whether at least one available date hasn't passed yet — a listing
+        whose dates have all lapsed shouldn't be orderable even if units and
+        status still look fine. ISO date strings sort lexicographically the
+        same as chronologically, so plain string comparison is safe here."""
+        from django.utils import timezone
+        today = timezone.localdate().isoformat()
+        return any(d >= today for d in (self.available_dates or []))
+
+    def is_purchasable(self):
+        return self.status == self.STATUS_ACTIVE and self.units_remaining() > 0 and self.has_future_dates()
+
+
+class MarketOrder(models.Model):
+    STATUS_PENDING   = 'pending'
+    STATUS_ACCEPTED  = 'accepted'
+    STATUS_DECLINED  = 'declined'
+    STATUS_CANCELLED = 'cancelled'
+    STATUS_FULFILLED = 'fulfilled'
+    STATUS_CHOICES = [
+        (STATUS_PENDING,   'Pending approval'),
+        (STATUS_ACCEPTED,  'Accepted'),
+        (STATUS_DECLINED,  'Declined'),
+        (STATUS_CANCELLED, 'Cancelled'),
+        (STATUS_FULFILLED, 'Fulfilled'),
+    ]
+
+    FEE_PENDING  = 'pending'
+    FEE_INVOICED = 'invoiced'
+    FEE_PAID     = 'paid'
+    FEE_WAIVED   = 'waived'
+    FEE_STATUS_CHOICES = [
+        (FEE_PENDING,  'Pending'),
+        (FEE_INVOICED, 'Invoiced'),
+        (FEE_PAID,     'Paid'),
+        (FEE_WAIVED,   'Waived'),
+    ]
+
+    listing   = models.ForeignKey(MarketListing, on_delete=models.CASCADE, related_name='orders')
+    buyer     = models.ForeignKey(User, on_delete=models.CASCADE, related_name='market_orders')
+    quantity  = models.PositiveIntegerField()
+    unit_price_at_order  = models.DecimalField(max_digits=10, decimal_places=2)  # snapshot, in case listing price changes later
+    total_price            = models.DecimalField(max_digits=10, decimal_places=2)
+    platform_fee_amount     = models.DecimalField(max_digits=10, decimal_places=2)
+
+    fulfillment_method = models.CharField(max_length=10, choices=MarketListing.FULFILLMENT_CHOICES)
+    delivery_town         = models.CharField(max_length=50, blank=True, choices=TOWN_CHOICES)
+    requested_date          = models.DateField()
+
+    status     = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
+    fee_status = models.CharField(max_length=10, choices=FEE_STATUS_CHOICES, default=FEE_PENDING, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Market Order'
+        verbose_name_plural = 'Market Orders'
+
+    def __str__(self):
+        return f'{self.buyer} × {self.quantity} "{self.listing.title}" ({self.status})'
 
 
 # ── Signals ─────────────────────────────────────────────────────────────────────

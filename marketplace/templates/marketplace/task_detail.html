@@ -38,6 +38,8 @@
 .poster-av{width:44px;height:44px;border-radius:50%;background:#dde8ef;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;}
 .action-banner{background:var(--blue-light);border-radius:12px;padding:14px;text-align:center;margin-bottom:14px;font-size:.9rem;}
 .action-banner a,.action-banner button{display:inline-block;margin-top:8px;}
+.check-row{display:flex;align-items:flex-start;gap:10px;font-size:.87rem;color:var(--muted);line-height:1.5;}
+.check-row input{margin-top:2px;accent-color:var(--blue);}
 @media(max-width:800px){.td-grid{grid-template-columns:1fr;}.side-card{position:static;}}
 </style>
 {% endblock %}
@@ -228,6 +230,15 @@
           <h2>Submit a quote</h2>
           <form method="post" action="{% url 'submit_quote' task.pk %}">
             {% csrf_token %}
+            <div class="check-row" style="margin-bottom:8px;">
+              {{ quote_form.vat_applicable }}
+              <span>Charge VAT on this job</span>
+            </div>
+            <div class="field" id="quote-vat-rate-field" style="display:none;margin-bottom:14px;">
+              <label>VAT rate (%)</label>
+              {{ quote_form.vat_rate }}
+            </div>
+
             <div class="field" style="margin-bottom:14px;">
               <label>Minimum amount I want to take home</label>
               {{ quote_form.minimum_take_home_amount }}
@@ -396,6 +407,19 @@
 
   const minInput = form.querySelector('[name="minimum_take_home_amount"]');
   const priceInput = form.querySelector('[name="price"]');
+  const vatCheckbox = form.querySelector('[name="vat_applicable"]');
+  const vatRateInput = form.querySelector('[name="vat_rate"]');
+  const vatRateField = document.getElementById('quote-vat-rate-field');
+  if (vatCheckbox && vatRateField) {
+    function updateVatField(){ vatRateField.style.display = vatCheckbox.checked ? 'block' : 'none'; }
+    vatCheckbox.addEventListener('change', updateVatField);
+    updateVatField();
+  }
+  function currentVatRate() {
+    if (!vatCheckbox || !vatCheckbox.checked || !vatRateInput) return 0;
+    const rate = parseFloat(vatRateInput.value);
+    return isNaN(rate) ? 0 : rate;
+  }
   const discountRadios = form.querySelectorAll('input[name="discount_choice"]');
   const promoCodeRow = document.getElementById('promo-code-row');
   const promoCodeText = document.getElementById('promo_code_text');
@@ -465,7 +489,11 @@
       }
     }
 
-    const takeHome = roundValue(customer - fee);
+    // VAT is deducted from what's left after the platform fee — it's money
+    // the tradie must remit, not something the platform fee is based on.
+    const vatRate = currentVatRate();
+    const afterFee = customer - fee;
+    const takeHome = roundValue(afterFee * (1 - vatRate / 100));
     return {
       customer_facing_quote: roundValue(customer),
       estimated_platform_fee: fee,
@@ -479,24 +507,28 @@
   }
 
   function calculateFromTakeHome(minimum) {
-    const standardMultiplier = 1 - settings.successFeeRate / 100;
+    const vatRate = currentVatRate();
+    const vatMultiplier = 1 - vatRate / 100;
+    const standardMultiplier = vatMultiplier * (1 - settings.successFeeRate / 100);
     let customer = minimum / standardMultiplier;
     let fee = roundValue(customer * settings.successFeeRate / 100);
     let rule = `Standard ${settings.successFeeRate}%`;
 
     if (customer > settings.largeThreshold) {
-      customer = minimum / (1 - settings.largeFeeRate / 100);
-      fee = roundValue(customer - minimum);
+      customer = minimum / (vatMultiplier * (1 - settings.largeFeeRate / 100));
+      fee = roundValue(customer * settings.largeFeeRate / 100);
       rule = `Large job ${settings.largeFeeRate}%`;
     } else if (fee > settings.feeCap) {
-      customer = minimum + settings.feeCap;
+      // With a capped fee, take-home after VAT is (minimum + feeCap) * vatMultiplier's
+      // inverse — solve directly rather than re-deriving from the standard formula.
+      customer = (minimum / vatMultiplier) + settings.feeCap;
       fee = roundValue(settings.feeCap);
       rule = `Standard ${settings.successFeeRate}% / FJD $${roundValue(settings.feeCap).toFixed(2)} cap`;
     }
 
     customer = roundValue(customer);
     fee = roundValue(fee);
-    const takeHome = roundValue(customer - fee);
+    const takeHome = roundValue((customer - fee) * vatMultiplier);
 
     return {
       customer_facing_quote: customer,

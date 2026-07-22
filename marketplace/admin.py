@@ -8,12 +8,15 @@ from decimal import Decimal
 from django import forms
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from django.db.models import Q
+from django.db.models import F, Q
+from django.db.models.functions import Greatest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import path, reverse
 from django.utils import timezone
 
 from .models import (
+    MarketListing,
+    MarketOrder,
     Message,
     PlatformCircumventionCase,
     PlatformFee,
@@ -925,3 +928,61 @@ class SponsorAdmin(admin.ModelAdmin):
             return '✅ ACTIVE'
         return '❌'
     is_active_display.short_description = 'Currently Active'
+
+
+# ── Market ────────────────────────────────────────────────────────────────────
+
+class MarketOrderInline(admin.TabularInline):
+    model = MarketOrder
+    extra = 0
+    fields = ['buyer', 'quantity', 'total_price', 'platform_fee_amount', 'requested_date', 'status', 'fee_status']
+    # status is view-only here — editing it inline would bypass the stock
+    # reconciliation in MarketOrderAdmin.save_model(). Change status from the
+    # Market Order admin page instead, where units_sold stays in sync.
+    readonly_fields = ['buyer', 'quantity', 'total_price', 'platform_fee_amount', 'requested_date', 'status']
+    can_delete = False
+
+
+@admin.register(MarketListing)
+class MarketListingAdmin(admin.ModelAdmin):
+    list_display = ['title', 'seller', 'category', 'price_per_unit', 'units_remaining', 'units_available', 'status', 'order_mode', 'created_at']
+    list_filter = ['status', 'order_mode', 'fulfillment_method', 'category']
+    search_fields = ['title', 'seller__first_name', 'seller__last_name', 'seller__email']
+    raw_id_fields = ['seller']
+    readonly_fields = ['created_at', 'fee_rate_at_listing']
+    inlines = [MarketOrderInline]
+    date_hierarchy = 'created_at'
+
+    def units_remaining(self, obj):
+        return obj.units_remaining()
+
+
+@admin.register(MarketOrder)
+class MarketOrderAdmin(admin.ModelAdmin):
+    list_display = ['listing', 'buyer', 'quantity', 'total_price', 'platform_fee_amount', 'requested_date', 'status', 'fee_status', 'created_at']
+    list_filter = ['status', 'fee_status', 'fulfillment_method']
+    search_fields = ['listing__title', 'buyer__first_name', 'buyer__last_name', 'buyer__email']
+    raw_id_fields = ['listing', 'buyer']
+    readonly_fields = ['created_at']
+    date_hierarchy = 'created_at'
+
+    # Stock-holding vs stock-releasing states — mirrors the reconciliation
+    # already done in market_order_respond/market_order_cancel, so an admin
+    # changing status here (the only other place status can change) keeps
+    # units_sold in sync instead of silently drifting out of it.
+    _RELEASES_STOCK = {MarketOrder.STATUS_DECLINED, MarketOrder.STATUS_CANCELLED}
+
+    def save_model(self, request, obj, form, change):
+        old_status = MarketOrder.objects.filter(pk=obj.pk).values_list('status', flat=True).first() if change else None
+        super().save_model(request, obj, form, change)
+        if old_status is not None and old_status != obj.status:
+            released_before = old_status in self._RELEASES_STOCK
+            released_after = obj.status in self._RELEASES_STOCK
+            if released_after and not released_before:
+                MarketListing.objects.filter(pk=obj.listing_id).update(
+                    units_sold=Greatest(F('units_sold') - obj.quantity, 0)
+                )
+            elif released_before and not released_after:
+                MarketListing.objects.filter(pk=obj.listing_id).update(
+                    units_sold=F('units_sold') + obj.quantity
+                )

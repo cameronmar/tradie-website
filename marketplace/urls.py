@@ -41,4 +41,13 @@ urlpatterns = [
     # Messages
     path('messages/',                        views.inbox,        name='inbox'),
     path('messages/<int:tpk>/<int:opk>/',    views.conversation, name='conversation'),
+    # Market
+    path('market/',                          views.market_browse,          name='market_browse'),
+    path('market/post/',                     views.create_market_listing,  name='create_market_listing'),
+    path('market/mine/',                     views.my_market_listings,     name='my_market_listings'),
+    path('market/orders/',                   views.my_market_orders,       name='my_market_orders'),
+    path('market/orders/<int:pk>/cancel/',   views.market_order_cancel,    name='market_order_cancel'),
+    path('market/orders/<int:pk>/<str:action>/', views.market_order_respond, name='market_order_respond'),
+    path('market/calculate/',                views.calculate_market_price, name='calculate_market_price'),
+    path('market/<int:pk>/',                 views.market_listing_detail,  name='market_listing_detail'),
 ]

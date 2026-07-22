@@ -1,0 +1,91 @@
+{% extends "marketplace/base.html" %}
+{% block title %}Market – The Coconut Wireless Network{% endblock %}
+
+{% block extra_css %}
+<style>
+.market-hdr{background:var(--white);border-bottom:1px solid #dde8ef;padding:20px 0;}
+.market-hdr h1{margin:0 0 4px;font-size:1.5rem;}
+.market-hdr p{margin:0;color:var(--muted);font-size:.9rem;}
+.market-tabs{display:flex;gap:6px;margin-top:16px;flex-wrap:wrap;}
+.market-tab{padding:9px 16px;border-radius:20px;font-size:.87rem;font-weight:600;text-decoration:none;color:var(--muted);background:#f0f5f8;border:1.5px solid transparent;}
+.market-tab:hover{background:var(--blue-light);color:var(--blue);}
+.market-tab.active{background:var(--blue);color:var(--white);}
+.market-subtabs{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+.market-subtab{padding:6px 13px;border-radius:16px;font-size:.8rem;font-weight:600;text-decoration:none;color:var(--muted);background:var(--white);border:1.5px solid #cce4ef;}
+.market-subtab:hover{border-color:var(--blue);color:var(--blue);}
+.market-subtab.active{background:var(--blue-light);border-color:var(--blue);color:var(--blue);}
+.market-grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));padding:26px 0 30px;}
+.mc{background:var(--white);border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.08);overflow:hidden;text-decoration:none;color:inherit;display:block;transition:box-shadow .2s;}
+.mc:hover{box-shadow:0 8px 28px rgba(0,80,120,.14);}
+.mc-photo{width:100%;height:150px;background:var(--blue-light) center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:2.2rem;}
+.mc-body{padding:16px;}
+.mc-cat{display:inline-flex;align-items:center;gap:4px;background:var(--blue-light);color:var(--blue);border-radius:20px;padding:3px 10px;font-size:.72rem;font-weight:700;margin-bottom:7px;}
+.mc-title{font-size:1rem;font-weight:700;margin-bottom:5px;}
+.mc-seller{font-size:.82rem;color:var(--muted);margin-bottom:8px;}
+.mc-price{font-size:1.1rem;font-weight:800;color:var(--blue);}
+.mc-units{font-size:.78rem;color:var(--muted);}
+.empty{text-align:center;padding:50px 20px;color:var(--muted);}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="market-hdr">
+  <div class="container">
+    <h1>🛒 The Market</h1>
+    <p>Food, goods, and more from clients and local professionals across Fiji.</p>
+    <div class="market-tabs">
+      <a href="{% url 'market_browse' %}" class="market-tab {% if not category_filter %}active{% endif %}">All</a>
+      {% for val, label in category_choices %}
+        <a href="{% url 'market_browse' %}?category={{ val }}" class="market-tab {% if val == category_filter %}active{% endif %}">{{ label }}</a>
+      {% endfor %}
+    </div>
+    {% if category_filter == 'food' %}
+    <div class="market-subtabs">
+      <a href="{% url 'market_browse' %}?category=food" class="market-subtab {% if not food_type_filter %}active{% endif %}">All food</a>
+      {% for val, label in food_type_choices %}
+        <a href="{% url 'market_browse' %}?category=food&food_type={{ val }}" class="market-subtab {% if val == food_type_filter %}active{% endif %}">{{ label }}</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="container">
+  {% if can_sell %}
+  <div style="padding-top:22px;">
+    <a href="{% url 'create_market_listing' %}" class="btn btn-primary btn-sm">+ Post a listing</a>
+    <a href="{% url 'my_market_listings' %}" class="btn btn-sm" style="background:#f0f5f8;color:var(--blue);">My listings</a>
+    {% if user.role == 'client' %}
+      <a href="{% url 'my_market_orders' %}" class="btn btn-sm" style="background:#f0f5f8;color:var(--blue);">My orders</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="market-grid">
+    {% for listing in listings %}
+    <a href="{% url 'market_listing_detail' listing.pk %}" class="mc">
+      {% if listing.photo %}
+        <div class="mc-photo" style="background-image:url('{{ listing.photo.url }}');"></div>
+      {% else %}
+        <div class="mc-photo">🛒</div>
+      {% endif %}
+      <div class="mc-body">
+        <div class="mc-cat">{{ listing.get_category_display }}{% if listing.food_type %} · {{ listing.get_food_type_display }}{% endif %}</div>
+        <div class="mc-title">{{ listing.title }}</div>
+        <div class="mc-seller">by {{ listing.seller.full_name }}</div>
+        <div class="mc-price">FJD ${{ listing.price_per_unit }} <span style="font-size:.75rem;font-weight:400;color:var(--muted);">/ unit</span></div>
+        <div class="mc-units">{{ listing.units_remaining }} left</div>
+      </div>
+    </a>
+    {% empty %}
+    <div class="empty" style="grid-column:1/-1;">
+      <p style="font-size:1.5rem">🛒</p>
+      <p>No Market listings match yet.</p>
+      {% if can_sell %}
+        <a href="{% url 'create_market_listing' %}" class="btn btn-primary btn-sm">Post the first listing</a>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

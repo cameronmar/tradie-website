@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 
 from django import forms
@@ -6,7 +7,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from .constants import TOWN_CHOICES, EXPERIENCE_CHOICES, FOUNDING_MEMBER_SLOTS, FOUNDING_MEMBER_CREDIT
-from .models import User, TradieProfile, Task, Quote, Message, TradeCategory, TaskPhoto
+from .models import User, TradieProfile, Task, Quote, Message, TradeCategory, TaskPhoto, MarketListing, MarketOrder
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -246,6 +247,7 @@ class QuoteForm(forms.ModelForm):
         model  = Quote
         fields = [
             'minimum_take_home_amount', 'price', 'customer_facing_quote',
+            'vat_applicable', 'vat_rate',
             'estimated_platform_fee', 'estimated_provider_take_home', 'fee_rule_applied',
             'success_fee_rate_at_quote_time', 'success_fee_cap_at_quote_time',
             'large_job_threshold_at_quote_time', 'large_job_fee_rate_at_quote_time',
@@ -255,6 +257,8 @@ class QuoteForm(forms.ModelForm):
         ]
         widgets = {
             'minimum_take_home_amount':    forms.NumberInput(attrs={'class': 'form-input', 'placeholder': 'FJD $', 'min': '0', 'step': '0.01', 'id': 'id_minimum_take_home_amount'}),
+            'vat_applicable':               forms.CheckboxInput(),
+            'vat_rate':                     _input('e.g. 15', type_='number'),
             'used_founding_credit':        forms.HiddenInput(),
             'customer_facing_quote':       forms.HiddenInput(),
             'estimated_platform_fee':      forms.HiddenInput(),
@@ -280,6 +284,12 @@ class QuoteForm(forms.ModelForm):
         if price is not None and price <= 0:
             raise ValidationError('Customer-facing quote must be greater than zero.')
         return price
+
+    def clean(self):
+        cd = super().clean()
+        if cd.get('vat_applicable') and not cd.get('vat_rate'):
+            self.add_error('vat_rate', 'Enter a VAT rate, or untick "Charge VAT on this job".')
+        return cd
 
 
 # ── Message form ──────────────────────────────────────────────────────────────
@@ -390,9 +400,189 @@ class ContactSupportForm(forms.Form):
 class NotificationPreferencesForm(forms.ModelForm):
     class Meta:
         model = User
-        fields = ['notify_email_new_quote', 'notify_email_new_message', 'notify_email_new_job_match']
+        fields = [
+            'notify_email_new_quote', 'notify_email_new_message', 'notify_email_new_job_match',
+            'notify_email_new_market_order', 'notify_email_market_order_update',
+        ]
         widgets = {
-            'notify_email_new_quote':     forms.CheckboxInput(),
-            'notify_email_new_message':   forms.CheckboxInput(),
-            'notify_email_new_job_match': forms.CheckboxInput(),
+            'notify_email_new_quote':            forms.CheckboxInput(),
+            'notify_email_new_message':           forms.CheckboxInput(),
+            'notify_email_new_job_match':          forms.CheckboxInput(),
+            'notify_email_new_market_order':        forms.CheckboxInput(),
+            'notify_email_market_order_update':      forms.CheckboxInput(),
         }
+
+
+# ── Market (local professionals selling items/serves) ───────────────────────
+
+class MarketListingForm(forms.ModelForm):
+    # Which field the seller actually typed into — the other side of the
+    # calculator is authoritatively computed server-side from this one.
+    calc_direction = forms.ChoiceField(
+        choices=[('take_home', 'take_home'), ('price', 'price')],
+        widget=forms.HiddenInput(), initial='take_home', required=False,
+    )
+    delivery_towns = forms.MultipleChoiceField(choices=TOWN_CHOICES, required=False, widget=forms.CheckboxSelectMultiple)
+    available_dates_input = forms.CharField(
+        required=True, label='Available dates',
+        # Populated by the date-picker widget in the template via JS, as a
+        # comma-separated list — kept as CharField so clean()'s parsing logic
+        # below is unchanged regardless of how the UI collects the dates.
+        widget=forms.HiddenInput(),
+        help_text='Comma-separated dates buyers can choose from (YYYY-MM-DD).',
+    )
+
+    class Meta:
+        model = MarketListing
+        fields = [
+            'title', 'description', 'photo', 'category', 'food_type',
+            'vat_applicable', 'vat_rate', 'take_home_per_unit', 'price_per_unit',
+            'units_available', 'fulfillment_method', 'pickup_town', 'order_mode',
+        ]
+        widgets = {
+            'title':               _input('e.g. Chocolate Mud Cake'),
+            'description':         forms.Textarea(attrs={'class': 'form-input', 'rows': 4, 'placeholder': "Describe what you're selling…"}),
+            'category':            _select(),
+            'food_type':           _select(),
+            'vat_applicable':      forms.CheckboxInput(),
+            'vat_rate':            _input('e.g. 15', type_='number'),
+            'take_home_per_unit':  _input('FJD $', type_='number'),
+            'price_per_unit':      _input('FJD $', type_='number'),
+            'units_available':     _input('e.g. 20', type_='number'),
+            'fulfillment_method':  _select(),
+            'pickup_town':         _select(),
+            'order_mode':          _select(),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['food_type'].required = False
+        self.fields['take_home_per_unit'].required = False
+        self.fields['price_per_unit'].required = False
+        self.fields['vat_rate'].required = False
+        self.fields['pickup_town'].required = False
+
+    def clean_photo(self):
+        photo = self.cleaned_data.get('photo')
+        # Market browse shows this at small thumbnail size — an unoptimized
+        # multi-MB upload would slow that page down for every visitor.
+        max_bytes = 5 * 1024 * 1024
+        if photo and hasattr(photo, 'size') and photo.size > max_bytes:
+            raise ValidationError('Photo must be smaller than 5MB.')
+        return photo
+
+    def clean(self):
+        cd = super().clean()
+        if cd.get('category') == MarketListing.CATEGORY_FOOD and not cd.get('food_type'):
+            self.add_error('food_type', 'Select whether this food is cooked, premade, or produce.')
+
+        vat_applicable = cd.get('vat_applicable')
+        vat_rate = cd.get('vat_rate') if vat_applicable else None
+        if vat_applicable and not vat_rate:
+            self.add_error('vat_rate', 'Enter a VAT rate, or untick VAT applicable.')
+            return cd
+
+        from .utils import calculate_market_price_per_unit, calculate_market_take_home
+        direction = cd.get('calc_direction') or 'take_home'
+        if direction == 'price' and cd.get('price_per_unit'):
+            result = calculate_market_take_home(cd['price_per_unit'], vat_rate)
+            if not result:
+                self.add_error('price_per_unit', 'Could not calculate — check the price and try again.')
+                return cd
+            cd['take_home_per_unit'], self.fee_rate_at_listing, _fee = result
+        elif cd.get('take_home_per_unit'):
+            result = calculate_market_price_per_unit(cd['take_home_per_unit'], vat_rate)
+            if not result:
+                self.add_error('take_home_per_unit', 'Could not calculate — check the amount and try again.')
+                return cd
+            cd['price_per_unit'], self.fee_rate_at_listing, _fee = result
+        else:
+            self.add_error('take_home_per_unit', 'Enter your desired take-home amount, or a price per unit.')
+            return cd
+
+        fulfillment = cd.get('fulfillment_method')
+        if fulfillment in (MarketListing.FULFILLMENT_DELIVERY, MarketListing.FULFILLMENT_BOTH) and not cd.get('delivery_towns'):
+            self.add_error('delivery_towns', 'Select at least one delivery town.')
+        if fulfillment in (MarketListing.FULFILLMENT_PICKUP, MarketListing.FULFILLMENT_BOTH) and not cd.get('pickup_town'):
+            self.add_error('pickup_town', 'Select a pickup town.')
+
+        from django.utils import timezone
+        today = timezone.localdate().isoformat()
+        dates_raw = cd.get('available_dates_input', '')
+        parsed_dates = []
+        for d in [part.strip() for part in dates_raw.split(',') if part.strip()]:
+            try:
+                parsed = datetime.strptime(d, '%Y-%m-%d').date().isoformat()
+            except ValueError:
+                self.add_error('available_dates_input', f'"{d}" is not a valid date (use YYYY-MM-DD).')
+                continue
+            if parsed < today:
+                # The date-picker's min attribute is a UI hint only — a
+                # direct POST could still submit a past date, so this is
+                # the real, authoritative check.
+                self.add_error('available_dates_input', f'"{parsed}" is in the past.')
+                continue
+            parsed_dates.append(parsed)
+        if parsed_dates:
+            cd['available_dates'] = sorted(set(parsed_dates))
+        elif 'available_dates_input' not in self.errors:
+            self.add_error('available_dates_input', 'Add at least one available date.')
+        return cd
+
+    def save(self, commit=True):
+        listing = super().save(commit=False)
+        cd = self.cleaned_data
+        listing.vat_rate = cd.get('vat_rate') if cd.get('vat_applicable') else None
+        listing.take_home_per_unit = cd['take_home_per_unit']
+        listing.price_per_unit = cd['price_per_unit']
+        listing.fee_rate_at_listing = self.fee_rate_at_listing
+        listing.delivery_towns = list(cd.get('delivery_towns') or [])
+        listing.available_dates = cd.get('available_dates', [])
+        if commit:
+            listing.save()
+        return listing
+
+
+class MarketOrderForm(forms.Form):
+    quantity           = forms.IntegerField(min_value=1, widget=_input('Quantity', type_='number'))
+    fulfillment_method  = forms.ChoiceField(choices=MarketListing.FULFILLMENT_CHOICES, widget=_select())
+    delivery_town        = forms.ChoiceField(choices=[('', '—')] + list(TOWN_CHOICES), required=False, widget=_select())
+    requested_date         = forms.ChoiceField(choices=[], widget=_select())
+
+    def __init__(self, *args, listing=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.listing = listing
+        if listing:
+            from django.utils import timezone
+            today = timezone.localdate().isoformat()
+            future_dates = [d for d in listing.available_dates if d >= today]
+            self.fields['requested_date'].choices = [(d, d) for d in future_dates]
+            if listing.fulfillment_method == MarketListing.FULFILLMENT_BOTH:
+                # A single order is pickup OR delivery, never "both" — that
+                # choice only makes sense at the listing level, offering
+                # buyers a choice of the two, not as a selectable value itself.
+                self.fields['fulfillment_method'].choices = [
+                    c for c in MarketListing.FULFILLMENT_CHOICES if c[0] != MarketListing.FULFILLMENT_BOTH
+                ]
+            else:
+                label = dict(MarketListing.FULFILLMENT_CHOICES)[listing.fulfillment_method]
+                self.fields['fulfillment_method'].choices = [(listing.fulfillment_method, label)]
+            # Native browser validation + a data attribute the client-side JS
+            # reads for instant feedback, on top of the authoritative server check.
+            remaining = listing.units_remaining()
+            self.fields['quantity'].widget.attrs['max'] = remaining
+            self.fields['quantity'].widget.attrs['data-max'] = remaining
+
+    def clean(self):
+        cd = super().clean()
+        qty = cd.get('quantity')
+        if self.listing and qty and qty > self.listing.units_remaining():
+            self.add_error('quantity', f'Only {self.listing.units_remaining()} left.')
+        fulfillment = cd.get('fulfillment_method')
+        if fulfillment == MarketListing.FULFILLMENT_DELIVERY:
+            town = cd.get('delivery_town')
+            if not town:
+                self.add_error('delivery_town', 'Select a delivery town.')
+            elif self.listing and town not in (self.listing.delivery_towns or []):
+                self.add_error('delivery_town', "This town isn't in the seller's delivery area.")
+        return cd

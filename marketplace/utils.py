@@ -182,6 +182,69 @@ def calculate_quote_without_platform_fee(quote_total, settings=None):
     }
 
 
+def calculate_market_price_per_unit(take_home, vat_rate=None, settings=None):
+    """
+    Market listing calculator, take-home → price direction. Given the seller's
+    desired take-home per unit and an optional VAT rate, compute the
+    buyer-facing price per unit.
+
+    VAT and the platform fee are both taken as a percentage of the final
+    price (not stacked in a particular order) — mathematically equivalent
+    either way since (1-a)(1-b) = (1-b)(1-a), so:
+        price = take_home / [(1 - vat_rate/100) * (1 - fee_rate/100)]
+
+    Uses the flat success_fee_rate (not the large-job tiered rate) since
+    per-unit Market pricing doesn't have a natural "job value" to tier on.
+
+    Returns: (price_per_unit, fee_rate, fee_amount) — all Decimal, price/fee
+    quantized to cents.
+    """
+    if settings is None:
+        settings = get_active_platform_settings()
+    if not settings or take_home is None or take_home <= 0:
+        return None
+
+    fee_rate = Decimal(str(settings.success_fee_rate))
+    vat_multiplier = (Decimal('1') - (Decimal(str(vat_rate)) / Decimal('100'))) if vat_rate else Decimal('1')
+    fee_multiplier = Decimal('1') - (fee_rate / Decimal('100'))
+    if vat_multiplier <= 0 or fee_multiplier <= 0:
+        return None
+
+    price = take_home / (vat_multiplier * fee_multiplier)
+    fee_amount = price * fee_rate / Decimal('100')
+    return (
+        price.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+        fee_rate,
+        fee_amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+    )
+
+
+def calculate_market_take_home(price, vat_rate=None, settings=None):
+    """
+    Market listing calculator, price → take-home direction (working
+    backwards, as requested — the seller can enter a price per unit directly
+    instead of a take-home target).
+
+    Returns: (take_home_per_unit, fee_rate, fee_amount) — all Decimal,
+    quantized to cents.
+    """
+    if settings is None:
+        settings = get_active_platform_settings()
+    if not settings or price is None or price <= 0:
+        return None
+
+    fee_rate = Decimal(str(settings.success_fee_rate))
+    fee_amount = price * fee_rate / Decimal('100')
+    after_fee = price - fee_amount
+    vat_multiplier = (Decimal('1') - (Decimal(str(vat_rate)) / Decimal('100'))) if vat_rate else Decimal('1')
+    take_home = after_fee * vat_multiplier
+    return (
+        take_home.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+        fee_rate,
+        fee_amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+    )
+
+
 def create_platform_fee_for_task(task, final_job_value):
     """
     Create a PlatformFee record when a task is completed. Applies (and
@@ -794,3 +857,51 @@ def notify_matching_tradies_new_job(task):
             channel=PlatformNotice.CHANNEL_IN_PLATFORM, subject=subject, body=body,
         )
         _send_email_notice(profile.user, subject, body, PlatformNotice.TYPE_NEW_JOB_MATCH)
+
+
+def notify_seller_new_market_order(order):
+    """Notify a seller that a new Market order was placed. Always logs an
+    in-platform notice; email is sent only if opted in (default on)."""
+    listing = order.listing
+    seller = listing.seller
+    subject = f'New order on "{listing.title}"'
+    body = (
+        f'Bula {seller.first_name},\n\n'
+        f'{order.buyer.full_name} ordered {order.quantity} × "{listing.title}" '
+        f'for FJD ${order.total_price}, requested for {order.requested_date.strftime("%d %B %Y")}.\n\n'
+        + (
+            'This listing is set to require your approval — log in to accept or decline the order.\n\n'
+            if listing.order_mode == listing.ORDER_MODE_APPROVAL
+            else 'This order was auto-accepted based on your listing settings.\n\n'
+        )
+        + f'Vinaka,\nThe Coconut Wireless Network Team'
+    )
+    PlatformNotice.objects.create(
+        recipient=seller, notice_type=PlatformNotice.TYPE_NEW_MARKET_ORDER,
+        channel=PlatformNotice.CHANNEL_IN_PLATFORM, subject=subject, body=body,
+    )
+    if seller.notify_email_new_market_order:
+        _send_email_notice(seller, subject, body, PlatformNotice.TYPE_NEW_MARKET_ORDER)
+
+
+def notify_buyer_market_order_update(order):
+    """Notify a buyer that their Market order was accepted or declined.
+    Always logs an in-platform notice; email is sent only if opted in
+    (default on)."""
+    listing = order.listing
+    buyer = order.buyer
+    status_label = order.get_status_display()
+    subject = f'Your order on "{listing.title}" was {status_label.lower()}'
+    body = (
+        f'Bula {buyer.first_name},\n\n'
+        f'Your order of {order.quantity} × "{listing.title}" (FJD ${order.total_price}) '
+        f'has been {status_label.lower()} by {listing.seller.full_name}.\n\n'
+        f'Log in to view the order details.\n\n'
+        f'Vinaka,\nThe Coconut Wireless Network Team'
+    )
+    PlatformNotice.objects.create(
+        recipient=buyer, notice_type=PlatformNotice.TYPE_MARKET_ORDER_UPDATE,
+        channel=PlatformNotice.CHANNEL_IN_PLATFORM, subject=subject, body=body,
+    )
+    if buyer.notify_email_market_order_update:
+        _send_email_notice(buyer, subject, body, PlatformNotice.TYPE_MARKET_ORDER_UPDATE)

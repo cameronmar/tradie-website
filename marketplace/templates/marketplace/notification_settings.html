@@ -48,6 +48,22 @@
         </div>
       </div>
       {% endif %}
+      <div class="check-row">
+        {{ form.notify_email_new_market_order }}
+        <div>
+          <label for="{{ form.notify_email_new_market_order.id_for_label }}">Someone orders from my Market listing</label>
+          <div class="hint">Get an email when a client or local professional orders from something you're selling on the Market.</div>
+        </div>
+      </div>
+      {% if user.role == 'client' %}
+      <div class="check-row">
+        {{ form.notify_email_market_order_update }}
+        <div>
+          <label for="{{ form.notify_email_market_order_update.id_for_label }}">My Market order is accepted or declined</label>
+          <div class="hint">Get an email when a seller responds to an order you placed on the Market.</div>
+        </div>
+      </div>
+      {% endif %}
       <button type="submit" class="btn btn-primary" style="width:100%;margin-top:18px;">Save preferences</button>
     </form>
   </div>

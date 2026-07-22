@@ -1,0 +1,147 @@
+{% extends "marketplace/base.html" %}
+{% block title %}{{ listing.title }} – The Coconut Wireless Network{% endblock %}
+
+{% block extra_css %}
+<style>
+.ld-body{display:grid;grid-template-columns:1fr 340px;gap:24px;padding:22px 0 50px;}
+.ld-photo img{width:100%;height:auto;border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.08);display:block;}
+.ld-photo-placeholder{width:100%;aspect-ratio:4/3;background:var(--blue-light);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:3rem;}
+@media(max-width:800px){.ld-body{grid-template-columns:1fr;}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="breadcrumb">
+    <a href="{% url 'market_browse' %}">← Back to Market</a>
+  </div>
+
+  <div class="ld-body">
+    <div>
+      <div class="ld-photo">
+        {% if listing.photo %}
+          <img src="{{ listing.photo.url }}" alt="{{ listing.title }}">
+        {% else %}
+          <div class="ld-photo-placeholder">🛒</div>
+        {% endif %}
+      </div>
+
+      <div class="sect-card" style="margin-top:16px;">
+        <h1 style="margin:0 0 6px;font-size:1.4rem;">{{ listing.title }}</h1>
+        <div class="chip chip-open" style="margin-bottom:10px;display:inline-block;">{{ listing.get_category_display }}{% if listing.food_type %} · {{ listing.get_food_type_display }}{% endif %}</div>
+        <p style="color:var(--muted);">Sold by <a href="{% url 'tradie_profile' listing.seller.pk %}">{{ listing.seller.full_name }}</a></p>
+        <p class="desc-text">{{ listing.description }}</p>
+        <div class="det-row"><span class="lbl">Price per unit</span><span>FJD ${{ listing.price_per_unit }}</span></div>
+        <div class="det-row"><span class="lbl">Units remaining</span><span>{{ listing.units_remaining }}</span></div>
+        <div class="det-row"><span class="lbl">Fulfillment</span><span>{{ listing.get_fulfillment_method_display }}</span></div>
+        {% if listing.pickup_town %}<div class="det-row"><span class="lbl">Pickup town</span><span>{{ listing.pickup_town }}</span></div>{% endif %}
+        {% if listing.delivery_towns %}<div class="det-row"><span class="lbl">Delivery towns</span><span>{{ listing.delivery_towns|join:", " }}</span></div>{% endif %}
+        <div class="det-row"><span class="lbl">Available dates</span><span>{{ listing.available_dates|join:", " }}</span></div>
+      </div>
+    </div>
+
+    <div>
+      {% if can_order %}
+      <div class="sect-card">
+        <h2 style="margin:0 0 14px;font-size:1rem;">Place an order</h2>
+        <form method="post">
+          {% csrf_token %}
+          <div class="field">
+            <label>Quantity</label>
+            {{ order_form.quantity }}
+            <div class="field-error" id="qty-client-error" style="display:none;"></div>
+            {% for e in order_form.quantity.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+          </div>
+          <div class="field">
+            <label>Fulfillment</label>
+            {{ order_form.fulfillment_method }}
+          </div>
+          <div class="field" id="delivery-town-field">
+            <label>Delivery town</label>
+            {{ order_form.delivery_town }}
+            {% for e in order_form.delivery_town.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+          </div>
+          <div class="field">
+            <label>Date</label>
+            {{ order_form.requested_date }}
+            {% for e in order_form.requested_date.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%;">Place order — FJD ${{ listing.price_per_unit }}/unit</button>
+        </form>
+      </div>
+      {% elif not user.is_authenticated %}
+      <div class="sect-card">
+        <p class="text-muted">Please <a href="{% url 'login' %}">log in</a> as a client to order from the Market.</p>
+      </div>
+      {% elif user == listing.seller %}
+      <div class="sect-card">
+        <p class="text-muted">This is your own listing — manage it from <a href="{% url 'my_market_listings' %}">My listings</a>.</p>
+      </div>
+      {% elif user.role == 'tradie' %}
+      <div class="sect-card">
+        <p class="text-muted">Local professional accounts can't purchase Market listings.</p>
+      </div>
+      {% elif not listing.is_purchasable %}
+      <div class="sect-card">
+        <p class="text-muted">This listing is sold out or closed.</p>
+      </div>
+      {% endif %}
+
+      {% if user_orders %}
+      <div class="sect-card">
+        <h2 style="margin:0 0 14px;font-size:1rem;">Your orders for this listing</h2>
+        {% for o in user_orders %}
+        <div class="qc" style="margin-bottom:10px;">
+          <div class="qc-hdr">
+            <span>{{ o.quantity }} unit{{ o.quantity|pluralize }} — FJD ${{ o.total_price }}</span>
+            <span class="chip chip-{{ o.status }}">{{ o.get_status_display }}</span>
+          </div>
+          <div class="t-meta">Requested {{ o.requested_date }}</div>
+          {% if o.status == 'pending' or o.status == 'accepted' %}
+          <form method="post" action="{% url 'market_order_cancel' o.pk %}" style="margin-top:8px;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm" style="background:#fdf2ec;color:#c0392b;">Cancel order</button>
+          </form>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  var methodSelect = document.getElementById('id_fulfillment_method');
+  var deliveryField = document.getElementById('delivery-town-field');
+  function update(){
+    if(!methodSelect || !deliveryField) return;
+    deliveryField.style.display = methodSelect.value === 'delivery' ? 'block' : 'none';
+  }
+  if(methodSelect){ methodSelect.addEventListener('change', update); update(); }
+
+  var qtyInput = document.getElementById('id_quantity');
+  var qtyError = document.getElementById('qty-client-error');
+  if (qtyInput && qtyError) {
+    var submitBtn = qtyInput.closest('form').querySelector('button[type=submit]');
+    var max = parseInt(qtyInput.getAttribute('data-max'), 10);
+    function checkQty(){
+      var val = parseInt(qtyInput.value, 10);
+      if (!isNaN(max) && val > max) {
+        qtyError.textContent = 'Only ' + max + ' left.';
+        qtyError.style.display = 'block';
+        if (submitBtn) submitBtn.disabled = true;
+      } else {
+        qtyError.style.display = 'none';
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    }
+    qtyInput.addEventListener('input', checkQty);
+    checkQty();
+  }
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,267 @@
+{% extends "marketplace/base.html" %}
+{% block title %}Post a Market Listing – The Coconut Wireless Network{% endblock %}
+
+{% block extra_css %}
+<style>
+.reg-page{padding:32px 0 50px;}
+.reg-wrap{max-width:640px;margin:0 auto;}
+.reg-wrap h1{font-size:1.6rem;margin:0 0 18px;}
+.form-card{background:var(--white);border-radius:18px;box-shadow:0 4px 18px rgba(0,80,120,.08);padding:24px;margin-bottom:18px;}
+.form-card h2{font-size:1rem;color:var(--blue);margin:0 0 16px;padding-bottom:9px;border-bottom:1px solid var(--blue-light);}
+.town-chips{display:flex;gap:8px;flex-wrap:wrap;}
+.town-chip{display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid #cce4ef;border-radius:20px;font-size:.85rem;cursor:pointer;}
+.town-chip input{accent-color:var(--blue);}
+.town-chip:has(input:checked){border-color:var(--blue);background:var(--blue-light);color:var(--blue);font-weight:600;}
+.calc-result{background:var(--blue-light);border-radius:10px;padding:14px;margin-top:12px;font-size:.88rem;}
+.calc-result .row{display:flex;justify-content:space-between;padding:3px 0;}
+.date-row{display:flex;gap:8px;margin-bottom:8px;align-items:center;}
+.date-row input[type=date]{flex:1;}
+.date-row .remove-date{background:#fdf2ec;color:#c0392b;flex-shrink:0;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container reg-page">
+  <div class="reg-wrap">
+    <h1>🛒 Post a Market listing</h1>
+
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="field-error" style="margin-bottom:12px;">{{ form.non_field_errors }}</div>{% endif %}
+
+      <div class="form-card">
+        <h2>What are you selling?</h2>
+        <div class="field"><label>Title</label>{{ form.title }}{% for e in form.title.errors %}<div class="field-error">{{ e }}</div>{% endfor %}</div>
+        <div class="field"><label>Description</label>{{ form.description }}</div>
+        <div class="field">
+          <label>Category</label>
+          {{ form.category }}
+          {% for e in form.category.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+        </div>
+        <div class="field" id="food-type-field" style="display:none;">
+          <label>Food type</label>
+          {{ form.food_type }}
+          {% for e in form.food_type.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+        </div>
+        <div class="field"><label>Photo <span style="color:var(--muted);font-weight:400">(optional)</span></label>{{ form.photo }}</div>
+      </div>
+
+      <div class="form-card">
+        <h2>Price calculator</h2>
+        <div class="check-row">
+          {{ form.vat_applicable }}
+          <span>Charge VAT on this item</span>
+        </div>
+        <div class="field" id="vat-rate-field" style="display:none;">
+          <label>VAT rate (%)</label>
+          {{ form.vat_rate }}
+        </div>
+        <div class="field">
+          <label>Desired take-home per unit (FJD $)</label>
+          {{ form.take_home_per_unit }}
+        </div>
+        <div style="text-align:center;color:var(--muted);font-size:.82rem;margin:8px 0;">— or enter a price directly and we'll work out your take-home —</div>
+        <div class="field">
+          <label>Price per unit (FJD $)</label>
+          {{ form.price_per_unit }}
+        </div>
+        <button type="button" id="calc-btn" class="btn btn-outline-blue" style="width:100%;">Calculate</button>
+        <div class="calc-result" id="calc-result" style="display:none;">
+          <div class="row"><span>Platform fee rate</span><span id="calc-fee-rate"></span></div>
+          <div class="row"><span>Platform fee</span><span id="calc-fee-amount"></span></div>
+          <div class="row"><span>Take-home per unit</span><span id="calc-take-home"></span></div>
+          <div class="row"><span>Buyer pays per unit</span><span id="calc-price"></span></div>
+        </div>
+        {{ form.calc_direction }}
+        {% for e in form.take_home_per_unit.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+        {% for e in form.price_per_unit.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+        {% for e in form.vat_rate.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+      </div>
+
+      <div class="form-card">
+        <h2>Availability</h2>
+        <div class="field">
+          <label>Units available</label>
+          {{ form.units_available }}
+          {% for e in form.units_available.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+        </div>
+        <div class="field">
+          <label>Available dates</label>
+          <div id="date-rows"></div>
+          <button type="button" id="add-date-btn" class="btn btn-outline-blue btn-sm" style="margin-top:4px;">+ Add another date</button>
+          {{ form.available_dates_input }}
+          <div class="hint">Pick every date buyers can choose from.</div>
+          {% for e in form.available_dates_input.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+        </div>
+        <div class="field">
+          <label>Order handling</label>
+          {{ form.order_mode }}
+        </div>
+      </div>
+
+      <div class="form-card">
+        <h2>Fulfillment</h2>
+        <div class="field">
+          <label>Method</label>
+          {{ form.fulfillment_method }}
+        </div>
+        <div class="field" id="pickup-town-field">
+          <label>Pickup town</label>
+          {{ form.pickup_town }}
+          {% for e in form.pickup_town.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+        </div>
+        <div class="field" id="delivery-towns-field">
+          <label>Delivery towns</label>
+          <div class="town-chips">
+            {% for value, label in form.delivery_towns.field.choices %}
+            <label class="town-chip">
+              <input type="checkbox" name="delivery_towns" value="{{ value }}" {% if value in form.delivery_towns.value %}checked{% endif %}>
+              {{ label }}
+            </label>
+            {% endfor %}
+          </div>
+          {% for e in form.delivery_towns.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem;">Post listing →</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  var categorySelect = document.getElementById('id_category');
+  var foodTypeField = document.getElementById('food-type-field');
+  function updateFoodType(){ foodTypeField.style.display = categorySelect.value === 'food' ? 'block' : 'none'; }
+  categorySelect.addEventListener('change', updateFoodType);
+  updateFoodType();
+
+  var vatCheckbox = document.getElementById('id_vat_applicable');
+  var vatField = document.getElementById('vat-rate-field');
+  function updateVat(){ vatField.style.display = vatCheckbox.checked ? 'block' : 'none'; }
+  vatCheckbox.addEventListener('change', updateVat);
+  updateVat();
+
+  var methodSelect = document.getElementById('id_fulfillment_method');
+  var pickupField = document.getElementById('pickup-town-field');
+  var deliveryField = document.getElementById('delivery-towns-field');
+  function updateFulfillment(){
+    var v = methodSelect.value;
+    pickupField.style.display = (v === 'pickup' || v === 'both') ? 'block' : 'none';
+    deliveryField.style.display = (v === 'delivery' || v === 'both') ? 'block' : 'none';
+  }
+  methodSelect.addEventListener('change', updateFulfillment);
+  updateFulfillment();
+
+  // Date picker: native <input type="date"> rows, synced into the hidden
+  // comma-separated field the form actually submits.
+  var dateContainer = document.getElementById('date-rows');
+  var datesHidden = document.getElementById('id_available_dates_input');
+  var addDateBtn = document.getElementById('add-date-btn');
+
+  function syncDates(){
+    var values = Array.prototype.slice.call(dateContainer.querySelectorAll('input[type=date]'))
+      .map(function(i){ return i.value; })
+      .filter(Boolean);
+    datesHidden.value = values.join(',');
+  }
+
+  function addDateRow(value){
+    var row = document.createElement('div');
+    row.className = 'date-row';
+    var input = document.createElement('input');
+    input.type = 'date';
+    input.className = 'form-input';
+    input.min = new Date().toISOString().slice(0, 10);
+    if (value) input.value = value;
+    input.addEventListener('change', syncDates);
+    var removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn btn-sm remove-date';
+    removeBtn.textContent = '✕';
+    removeBtn.setAttribute('aria-label', 'Remove this date');
+    removeBtn.addEventListener('click', function(){
+      row.remove();
+      syncDates();
+    });
+    row.appendChild(input);
+    row.appendChild(removeBtn);
+    dateContainer.appendChild(row);
+  }
+
+  addDateBtn.addEventListener('click', function(){ addDateRow(); });
+  // Repopulate from any existing (invalid-resubmit) value, else start with one row.
+  var existingDates = (datesHidden.value || '').split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+  if (existingDates.length) {
+    existingDates.forEach(addDateRow);
+  } else {
+    addDateRow();
+  }
+  dateContainer.closest('form').addEventListener('submit', syncDates);
+
+  var takeHomeInput = document.getElementById('id_take_home_per_unit');
+  var priceInput = document.getElementById('id_price_per_unit');
+  var vatRateInput = document.getElementById('id_vat_rate');
+  var calcDirectionInput = document.getElementById('id_calc_direction');
+  var calcUrl = '{% url "calculate_market_price" %}';
+
+  // If the seller manually edits one side after a calculation already
+  // populated both, clear the other side — otherwise which value is
+  // "authoritative" at submit time is ambiguous, and a manual price edit
+  // could silently get overwritten by a stale take-home calculation.
+  takeHomeInput.addEventListener('input', function(){ priceInput.value = ''; });
+  priceInput.addEventListener('input', function(){ takeHomeInput.value = ''; });
+
+  // Set the authoritative direction from whichever field actually has a
+  // value at submit time — not just whichever was last used to click
+  // Calculate, so submitting without clicking Calculate still works.
+  takeHomeInput.closest('form').addEventListener('submit', function(){
+    calcDirectionInput.value = (priceInput.value && !takeHomeInput.value) ? 'price' : 'take_home';
+  });
+
+  function runCalculation(direction){
+    var params = new URLSearchParams();
+    params.set('direction', direction);
+    params.set('vat_applicable', vatCheckbox.checked ? 'true' : 'false');
+    params.set('vat_rate', vatRateInput.value || '');
+    if (direction === 'price') {
+      params.set('price_per_unit', priceInput.value || '');
+    } else {
+      params.set('take_home_per_unit', takeHomeInput.value || '');
+    }
+    return fetch(calcUrl + '?' + params.toString())
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (!data.valid) { alert('Enter a valid amount to calculate.'); return; }
+        calcDirectionInput.value = direction;
+        document.getElementById('calc-fee-rate').textContent = data.fee_rate + '%';
+        document.getElementById('calc-fee-amount').textContent = 'FJD $' + data.fee_amount;
+        if (direction === 'price') {
+          takeHomeInput.value = data.take_home_per_unit;
+          document.getElementById('calc-take-home').textContent = 'FJD $' + data.take_home_per_unit;
+          document.getElementById('calc-price').textContent = 'FJD $' + priceInput.value;
+        } else {
+          priceInput.value = data.price_per_unit;
+          document.getElementById('calc-price').textContent = 'FJD $' + data.price_per_unit;
+          document.getElementById('calc-take-home').textContent = 'FJD $' + takeHomeInput.value;
+        }
+        document.getElementById('calc-result').style.display = 'block';
+      });
+  }
+
+  var calcBtn = document.getElementById('calc-btn');
+  calcBtn.addEventListener('click', function(){
+    var direction = (priceInput.value && !takeHomeInput.value) ? 'price' : 'take_home';
+    calcBtn.disabled = true;
+    calcBtn.textContent = 'Calculating…';
+    runCalculation(direction).finally(function(){
+      calcBtn.disabled = false;
+      calcBtn.textContent = 'Calculate';
+    });
+  });
+})();
+</script>
+{% endblock %}

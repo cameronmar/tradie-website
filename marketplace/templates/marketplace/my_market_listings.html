@@ -1,0 +1,59 @@
+{% extends "marketplace/base.html" %}
+{% block title %}My Market Listings – The Coconut Wireless Network{% endblock %}
+
+{% block extra_css %}
+<style>
+.ml-page{max-width:820px;margin:0 auto;padding:28px 20px 50px;}
+.ml-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px;}
+.ml-card{background:var(--white);border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.08);padding:20px;margin-bottom:16px;}
+.ml-card-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
+.ml-title{font-weight:700;font-size:1rem;}
+.ml-meta{color:var(--muted);font-size:.85rem;margin-top:3px;}
+.order-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid #f0f5f8;gap:10px;flex-wrap:wrap;}
+.order-actions{display:flex;gap:8px;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ml-page">
+  <div class="ml-hdr">
+    <div class="page-title" style="margin:0;">My Market listings</div>
+    <a href="{% url 'create_market_listing' %}" class="btn btn-primary btn-sm">+ Post a listing</a>
+  </div>
+
+  {% for listing in listings %}
+  <div class="ml-card">
+    <div class="ml-card-hdr">
+      <div>
+        <div class="ml-title"><a href="{% url 'market_listing_detail' listing.pk %}" style="color:inherit;text-decoration:none;">{{ listing.title }}</a></div>
+        <div class="ml-meta">FJD ${{ listing.price_per_unit }}/unit · {{ listing.units_remaining }} of {{ listing.units_available }} left · {{ listing.get_order_mode_display }}</div>
+      </div>
+      <span class="chip chip-{{ listing.status }}">{{ listing.get_status_display }}</span>
+    </div>
+
+    {% for order in listing.orders.all %}
+    <div class="order-row">
+      <div>
+        <strong>{{ order.buyer.full_name }}</strong> — {{ order.quantity }} unit{{ order.quantity|pluralize }}, FJD ${{ order.total_price }}, requested {{ order.requested_date }}
+        <span class="chip chip-{{ order.status }}" style="margin-left:6px;">{{ order.get_status_display }}</span>
+      </div>
+      {% if order.status == 'pending' %}
+      <div class="order-actions">
+        <form method="post" action="{% url 'market_order_respond' order.pk 'accept' %}">{% csrf_token %}<button type="submit" class="btn btn-success btn-sm">Accept</button></form>
+        <form method="post" action="{% url 'market_order_respond' order.pk 'decline' %}">{% csrf_token %}<button type="submit" class="btn btn-sm" style="background:#fdf2ec;color:#c0392b;">Decline</button></form>
+      </div>
+      {% endif %}
+    </div>
+    {% empty %}
+    <p class="text-muted" style="font-size:.85rem;margin:8px 0 0;">No orders yet.</p>
+    {% endfor %}
+  </div>
+  {% empty %}
+  <div style="text-align:center;padding:50px 20px;color:var(--muted);">
+    <p style="font-size:1.5rem">🛒</p>
+    <p>You haven't posted any Market listings yet.</p>
+    <a href="{% url 'create_market_listing' %}" class="btn btn-primary btn-sm">Post your first listing</a>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

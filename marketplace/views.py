@@ -7,12 +7,14 @@ Privacy rule enforced here:
 """
 from django.contrib import messages as flash
 from django.contrib.auth import authenticate, login, logout
+from datetime import datetime
 from decimal import Decimal
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 from django.core.exceptions import PermissionDenied
-from django.db import DatabaseError, connection
-from django.db.models import Avg, Q
+from django.db import DatabaseError, connection, transaction
+from django.db.models import Avg, F, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -27,6 +29,8 @@ from .forms import (
     ClientRegistrationForm,
     ContactSupportForm,
     LoginForm,
+    MarketListingForm,
+    MarketOrderForm,
     MessageForm,
     NotificationPreferencesForm,
     PrivateReviewForm,
@@ -38,6 +42,8 @@ from .forms import (
 )
 from .models import (
     Invoice,
+    MarketListing,
+    MarketOrder,
     Message,
     PlatformNotice,
     PlatformSettings,
@@ -54,15 +60,19 @@ from .models import (
     User,
 )
 from .utils import (
+    calculate_market_price_per_unit,
+    calculate_market_take_home,
     calculate_platform_fee,
     calculate_quote_from_take_home,
     create_platform_fee_for_task,
     get_active_platform_settings,
     get_tradie_billing_summary,
     notify_admin,
+    notify_buyer_market_order_update,
     notify_client_new_quote,
     notify_matching_tradies_new_job,
     notify_message_recipient,
+    notify_seller_new_market_order,
     send_welcome_notice,
 )
 
@@ -923,3 +933,205 @@ def conversation(request, tpk, opk):
         'chat_messages': chat_messages,
         'compose_form':  MessageForm(),
     })
+
+
+# ── Market (local professionals selling items/serves) ──────────────────────────
+
+def market_browse(request):
+    # Status + stock filtered at the DB level rather than loading every
+    # active listing and checking in Python — same class of fix as the
+    # earlier category_label N+1. Whether a listing's available_dates have
+    # all lapsed can't be pushed into a JSONField query cross-DB (same
+    # limitation as Sponsor.placements), so that one check runs in Python —
+    # but only over the already-narrowed (active, in-stock) result set.
+    listings = (
+        MarketListing.objects.filter(status=MarketListing.STATUS_ACTIVE)
+        .filter(units_sold__lt=F('units_available'))
+        .select_related('seller')
+    )
+    category = request.GET.get('category', '').strip()
+    food_type = request.GET.get('food_type', '').strip()
+    if category:
+        listings = listings.filter(category=category)
+    if category == MarketListing.CATEGORY_FOOD and food_type:
+        listings = listings.filter(food_type=food_type)
+    listings = [l for l in listings if l.has_future_dates()]
+    return render(request, 'marketplace/market_browse.html', {
+        'listings': listings,
+        'category_choices': MarketListing.CATEGORY_CHOICES,
+        'food_type_choices': MarketListing.FOOD_TYPE_CHOICES,
+        'category_filter': category,
+        'food_type_filter': food_type,
+        'can_sell': request.user.is_authenticated and request.user.role in (User.ROLE_TRADIE, User.ROLE_CLIENT),
+    })
+
+
+def market_listing_detail(request, pk):
+    listing = get_object_or_404(MarketListing.objects.select_related('seller'), pk=pk)
+    order_form = None
+    user_orders = []
+
+    if request.user.is_authenticated:
+        user_orders = list(
+            MarketOrder.objects.filter(listing=listing, buyer=request.user).order_by('-created_at')
+        )
+        # Clients can now sell on the Market too, so a client viewing their
+        # own listing must not see an order form for it.
+        if request.user.role == User.ROLE_CLIENT and request.user != listing.seller and listing.is_purchasable():
+            if request.method == 'POST':
+                order_form = MarketOrderForm(request.POST, listing=listing)
+                if order_form.is_valid():
+                    cd = order_form.cleaned_data
+                    with transaction.atomic():
+                        locked = MarketListing.objects.select_for_update().get(pk=listing.pk)
+                        if cd['quantity'] > locked.units_remaining():
+                            flash.error(request, f'Only {locked.units_remaining()} left — someone may have just ordered.')
+                            return redirect('market_listing_detail', pk=pk)
+                        total_price = (locked.price_per_unit * cd['quantity']).quantize(Decimal('0.01'))
+                        fee_amount = (total_price * locked.fee_rate_at_listing / Decimal('100')).quantize(Decimal('0.01'))
+                        order = MarketOrder.objects.create(
+                            listing=locked,
+                            buyer=request.user,
+                            quantity=cd['quantity'],
+                            unit_price_at_order=locked.price_per_unit,
+                            total_price=total_price,
+                            platform_fee_amount=fee_amount,
+                            fulfillment_method=cd['fulfillment_method'],
+                            delivery_town=cd.get('delivery_town', ''),
+                            requested_date=datetime.strptime(cd['requested_date'], '%Y-%m-%d').date(),
+                            status=(
+                                MarketOrder.STATUS_ACCEPTED
+                                if locked.order_mode == MarketListing.ORDER_MODE_AUTO
+                                else MarketOrder.STATUS_PENDING
+                            ),
+                        )
+                        locked.units_sold += cd['quantity']
+                        locked.save(update_fields=['units_sold'])
+                    notify_seller_new_market_order(order)
+                    flash.success(request, 'Order placed! ' + (
+                        'Auto-accepted — the seller has been notified.'
+                        if order.status == MarketOrder.STATUS_ACCEPTED
+                        else 'Waiting on the seller to accept.'
+                    ))
+                    return redirect('market_listing_detail', pk=pk)
+            else:
+                order_form = MarketOrderForm(listing=listing)
+
+    return render(request, 'marketplace/market_listing_detail.html', {
+        'listing': listing,
+        'order_form': order_form,
+        'user_orders': user_orders,
+        'can_order': (
+            request.user.is_authenticated and request.user.role == User.ROLE_CLIENT
+            and request.user != listing.seller and listing.is_purchasable()
+        ),
+    })
+
+
+@login_required
+def create_market_listing(request):
+    # Both local professionals and clients can sell on the Market. Tradies
+    # still go through the same verification gate as quoting (rejected/
+    # suspended blocked); clients have no equivalent profile/status concept,
+    # so any authenticated client account is allowed straight through.
+    if request.user.role == User.ROLE_TRADIE:
+        approval_redirect = _require_quoting_tradie(request)
+        if approval_redirect:
+            return approval_redirect
+    elif request.user.role != User.ROLE_CLIENT:
+        raise PermissionDenied
+    form = MarketListingForm(request.POST or None, request.FILES or None)
+    if request.method == 'POST' and form.is_valid():
+        listing = form.save(commit=False)
+        listing.seller = request.user
+        listing.save()
+        flash.success(request, 'Listing posted to the Market!')
+        return redirect('my_market_listings')
+    return render(request, 'marketplace/create_market_listing.html', {'form': form})
+
+
+@login_required
+def my_market_listings(request):
+    if request.user.role not in (User.ROLE_TRADIE, User.ROLE_CLIENT):
+        raise PermissionDenied
+    listings = (
+        MarketListing.objects.filter(seller=request.user)
+        .prefetch_related('orders', 'orders__buyer')
+    )
+    return render(request, 'marketplace/my_market_listings.html', {'listings': listings})
+
+
+@login_required
+@require_POST
+def market_order_respond(request, pk, action):
+    order = get_object_or_404(MarketOrder, pk=pk, listing__seller=request.user, status=MarketOrder.STATUS_PENDING)
+    if action == 'accept':
+        order.status = MarketOrder.STATUS_ACCEPTED
+        flash.success(request, 'Order accepted.')
+    elif action == 'decline':
+        order.status = MarketOrder.STATUS_DECLINED
+        with transaction.atomic():
+            locked = MarketListing.objects.select_for_update().get(pk=order.listing_id)
+            locked.units_sold = max(locked.units_sold - order.quantity, 0)
+            locked.save(update_fields=['units_sold'])
+        flash.success(request, 'Order declined — units returned to stock.')
+    else:
+        raise PermissionDenied
+    order.save(update_fields=['status'])
+    notify_buyer_market_order_update(order)
+    return redirect('my_market_listings')
+
+
+@login_required
+@require_POST
+def market_order_cancel(request, pk):
+    order = get_object_or_404(MarketOrder, pk=pk, buyer=request.user)
+    if order.status not in (MarketOrder.STATUS_PENDING, MarketOrder.STATUS_ACCEPTED):
+        flash.error(request, 'This order can no longer be cancelled.')
+        return redirect('my_market_orders')
+    order.status = MarketOrder.STATUS_CANCELLED
+    order.save(update_fields=['status'])
+    with transaction.atomic():
+        locked = MarketListing.objects.select_for_update().get(pk=order.listing_id)
+        locked.units_sold = max(locked.units_sold - order.quantity, 0)
+        locked.save(update_fields=['units_sold'])
+    flash.success(request, 'Order cancelled.')
+    return redirect('my_market_orders')
+
+
+@login_required
+def my_market_orders(request):
+    _require_role(request, User.ROLE_CLIENT)
+    orders = (
+        MarketOrder.objects.filter(buyer=request.user)
+        .select_related('listing', 'listing__seller')
+    )
+    return render(request, 'marketplace/my_market_orders.html', {'orders': orders})
+
+
+@login_required
+def calculate_market_price(request):
+    """AJAX endpoint mirroring check_promo_code — live preview only, the
+    authoritative calculation happens again server-side in MarketListingForm."""
+    direction = request.GET.get('direction', 'take_home')
+    vat_applicable = request.GET.get('vat_applicable') == 'true'
+    vat_rate = request.GET.get('vat_rate', '').strip()
+    vat_rate = Decimal(vat_rate) if (vat_applicable and vat_rate) else None
+
+    try:
+        if direction == 'price':
+            price = Decimal(request.GET.get('price_per_unit', '').strip() or '0')
+            result = calculate_market_take_home(price, vat_rate)
+            if not result:
+                return JsonResponse({'valid': False})
+            take_home, fee_rate, fee_amount = result
+            return JsonResponse({'valid': True, 'take_home_per_unit': str(take_home), 'fee_rate': str(fee_rate), 'fee_amount': str(fee_amount)})
+        else:
+            take_home = Decimal(request.GET.get('take_home_per_unit', '').strip() or '0')
+            result = calculate_market_price_per_unit(take_home, vat_rate)
+            if not result:
+                return JsonResponse({'valid': False})
+            price, fee_rate, fee_amount = result
+            return JsonResponse({'valid': True, 'price_per_unit': str(price), 'fee_rate': str(fee_rate), 'fee_amount': str(fee_amount)})
+    except Exception:
+        return JsonResponse({'valid': False})

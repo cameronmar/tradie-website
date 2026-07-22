@@ -1,0 +1,41 @@
+{% extends "marketplace/base.html" %}
+{% block title %}My Market Orders – The Coconut Wireless Network{% endblock %}
+
+{% block extra_css %}
+<style>
+.mo-page{max-width:720px;margin:0 auto;padding:28px 20px 50px;}
+.mo-card{background:var(--white);border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.08);padding:18px 20px;margin-bottom:14px;}
+.mo-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px;}
+.mo-title{font-weight:700;font-size:.95rem;}
+.mo-meta{color:var(--muted);font-size:.85rem;}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mo-page">
+  <div class="page-title">My Market orders</div>
+  <p class="page-sub">Orders you've placed from local professionals selling on the Market.</p>
+
+  {% for order in orders %}
+  <div class="mo-card">
+    <div class="mo-hdr">
+      <div class="mo-title"><a href="{% url 'market_listing_detail' order.listing.pk %}" style="color:inherit;text-decoration:none;">{{ order.listing.title }}</a></div>
+      <span class="chip chip-{{ order.status }}">{{ order.get_status_display }}</span>
+    </div>
+    <div class="mo-meta">{{ order.quantity }} unit{{ order.quantity|pluralize }} · FJD ${{ order.total_price }} · Sold by {{ order.listing.seller.full_name }} · Requested {{ order.requested_date }}</div>
+    {% if order.status == 'pending' or order.status == 'accepted' %}
+    <form method="post" action="{% url 'market_order_cancel' order.pk %}" style="margin-top:10px;">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-sm" style="background:#fdf2ec;color:#c0392b;">Cancel order</button>
+    </form>
+    {% endif %}
+  </div>
+  {% empty %}
+  <div style="text-align:center;padding:50px 20px;color:var(--muted);">
+    <p style="font-size:1.5rem">🛒</p>
+    <p>You haven't ordered anything from the Market yet.</p>
+    <a href="{% url 'market_browse' %}" class="btn btn-primary btn-sm">Browse the Market</a>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
