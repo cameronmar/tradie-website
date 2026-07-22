@@ -555,22 +555,40 @@ def send_welcome_notice(user):
     from django.core.mail import send_mail
 
     if user.role == User.ROLE_TRADIE:
-        subject = 'Welcome to the Coconut Wireless Network — you are set up as a Local Professional'
+        subject = 'Bula Vinaka and welcome to the Coconut Wireless Network!'
         body = (
             f'Bula {user.first_name},\n\n'
-            f'Welcome to the Coconut Wireless Network! Your local professional account has been created.\n\n'
-            f'Your documents are now pending review — once verified, you can start '
-            f'quoting on tasks posted by clients across Fiji.\n\n'
-            f'In the meantime, you can complete your profile and browse open tasks '
-            f'in your service towns from your dashboard.\n\n'
+            f'Thank you for joining the Coconut Wireless Network as one of our local professionals.\n\n'
+            f'This platform was created to help skilled people across Fiji connect with clients, '
+            f'find more work, build their reputation, and grow their businesses.\n\n'
+            f'Your documents are now pending review — once verified, you can start quoting on tasks. '
+            f'As we are just starting out, the number of available tasks may be limited while we '
+            f'build awareness and grow our client network. We kindly ask for your patience and '
+            f'support during these early stages.\n\n'
+            f'By completing your profile, responding professionally to tasks, providing fair quotes, '
+            f'and delivering quality service, you will help build trust in the platform and create '
+            f'more opportunities for everyone.\n\n'
+            f'Your participation is an important part of making the Coconut Wireless Network successful.\n\n'
+            f"Let's build the network together and create more opportunities for local professionals "
+            f'across Fiji.\n'
+            f'Skilled. Reliable. Local.\n\n'
             f'Vinaka,\nThe Coconut Wireless Network Team'
         )
     else:
-        subject = 'Welcome to the Coconut Wireless Network'
+        subject = 'Bula Vinaka and welcome to the Coconut Wireless Network!'
         body = (
             f'Bula {user.first_name},\n\n'
-            f'Welcome to the Coconut Wireless Network! Your client account is ready.\n\n'
-            f'Post your first task to get quotes from trusted local professionals in your area.\n\n'
+            f'Thank you for joining the Coconut Wireless Network.\n\n'
+            f'We created this platform to make it easier for people across Fiji to connect with '
+            f'trusted local professionals and get the help they need.\n\n'
+            f'As we are just starting out, you may notice that our network is still growing. We '
+            f'kindly ask for your patience as more local professionals join, more services become '
+            f'available, and we continue improving the platform.\n\n'
+            f'Every task you post and every piece of feedback you share helps us build a stronger '
+            f'and more useful network for communities across Fiji.\n\n'
+            f'Thank you for supporting local skills and local livelihoods.\n\n'
+            f"Let's build the Coconut Wireless Network together.\n"
+            f'Local jobs. Local people. Stronger communities.\n\n'
             f'Vinaka,\nThe Coconut Wireless Network Team'
         )
 

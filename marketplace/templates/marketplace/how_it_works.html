@@ -1,4 +1,5 @@
 {% extends "marketplace/base.html" %}
+{% load static %}
 {% block title %}How It Works – The Coconut Wireless Network{% endblock %}
 
 {% block extra_css %}
@@ -43,6 +44,10 @@
 .cbtn-w{padding:13px 26px;background:var(--white);color:var(--blue);border:none;border-radius:12px;font-size:.97rem;font-weight:700;cursor:pointer;text-decoration:none;}
 .cbtn-o{padding:13px 26px;background:transparent;color:var(--white);border:2px solid var(--white);border-radius:12px;font-size:.97rem;font-weight:700;cursor:pointer;text-decoration:none;}
 @media(max-width:600px){.hero h1{font-size:1.7rem;}}
+.team-photo{padding:36px 0 0;text-align:center;}
+.team-photo img{max-width:480px;width:100%;height:auto;border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.1);}
+.islands-section{max-width:520px;margin:0 auto;}
+.islands-section img{width:100%;height:auto;border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.1);display:block;}
 </style>
 {% endblock %}
 
@@ -56,6 +61,10 @@
       <button class="tab" onclick="setTab(this,'tradie')">I'm a local professional</button>
     </div>
   </div>
+</div>
+
+<div class="team-photo">
+  <img src="{% static 'marketplace/images/05_skilled_reliable_local.png' %}" alt="Skilled, reliable local professionals — our local professionals are here to help you get the job done">
 </div>
 
 <div id="clientSection">
@@ -123,6 +132,10 @@
       <div class="trust-item"><div class="big">FJD</div><div class="lbl">All pricing local</div></div>
     </div>
   </div>
+</section>
+
+<section class="section islands-section">
+  <img src="{% static 'marketplace/images/04_from_the_islands.png' %}" alt="From the Islands, For the Islands — proudly connecting communities across Fiji">
 </section>
 
 <section class="section section-alt">
