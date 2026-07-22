@@ -438,6 +438,7 @@ class MarketListingForm(forms.ModelForm):
             'title', 'description', 'photo', 'category', 'food_type',
             'vat_applicable', 'vat_rate', 'take_home_per_unit', 'price_per_unit',
             'units_available', 'fulfillment_method', 'pickup_town', 'order_mode',
+            'use_founding_credit',
         ]
         widgets = {
             'title':               _input('e.g. Chocolate Mud Cake'),
@@ -446,12 +447,18 @@ class MarketListingForm(forms.ModelForm):
             'food_type':           _select(),
             'vat_applicable':      forms.CheckboxInput(),
             'vat_rate':            _input('e.g. 15', type_='number'),
+            # Despite the model field name (kept as take_home_per_unit for
+            # schema stability — see clean()), this box collects the
+            # seller's desired TOTAL take-home across all units, per the
+            # "the calculator has to take the amount of serves into
+            # account" request — the per-unit amount is derived from it.
             'take_home_per_unit':  _input('FJD $', type_='number'),
             'price_per_unit':      _input('FJD $', type_='number'),
             'units_available':     _input('e.g. 20', type_='number'),
             'fulfillment_method':  _select(),
             'pickup_town':         _select(),
             'order_mode':          _select(),
+            'use_founding_credit': forms.CheckboxInput(),
         }
 
     def __init__(self, *args, **kwargs):
@@ -461,6 +468,7 @@ class MarketListingForm(forms.ModelForm):
         self.fields['price_per_unit'].required = False
         self.fields['vat_rate'].required = False
         self.fields['pickup_town'].required = False
+        self.fields['use_founding_credit'].required = False
 
     def clean_photo(self):
         photo = self.cleaned_data.get('photo')
@@ -482,22 +490,33 @@ class MarketListingForm(forms.ModelForm):
             self.add_error('vat_rate', 'Enter a VAT rate, or untick VAT applicable.')
             return cd
 
+        units_available = cd.get('units_available')
+        if not units_available or units_available <= 0:
+            self.add_error('units_available', 'Enter the number of units/serves available first — the calculator needs it to work out your price per unit.')
+            return cd
+
         from .utils import calculate_market_price_per_unit, calculate_market_take_home
         direction = cd.get('calc_direction') or 'take_home'
         if direction == 'price' and cd.get('price_per_unit'):
-            result = calculate_market_take_home(cd['price_per_unit'], vat_rate)
+            result = calculate_market_take_home(cd['price_per_unit'], units_available, vat_rate)
             if not result:
                 self.add_error('price_per_unit', 'Could not calculate — check the price and try again.')
                 return cd
-            cd['take_home_per_unit'], self.fee_rate_at_listing, _fee = result
+            total_take_home, self.fee_rate_at_listing, _fee = result
+            cd['take_home_per_unit'] = (total_take_home / units_available).quantize(Decimal('0.01'))
         elif cd.get('take_home_per_unit'):
-            result = calculate_market_price_per_unit(cd['take_home_per_unit'], vat_rate)
+            # This field holds the seller's desired TOTAL take-home (see the
+            # widget comment in Meta) — divide by units below to get the
+            # true per-unit amount the model field stores.
+            total_take_home = cd['take_home_per_unit']
+            result = calculate_market_price_per_unit(total_take_home, units_available, vat_rate)
             if not result:
                 self.add_error('take_home_per_unit', 'Could not calculate — check the amount and try again.')
                 return cd
             cd['price_per_unit'], self.fee_rate_at_listing, _fee = result
+            cd['take_home_per_unit'] = (total_take_home / units_available).quantize(Decimal('0.01'))
         else:
-            self.add_error('take_home_per_unit', 'Enter your desired take-home amount, or a price per unit.')
+            self.add_error('take_home_per_unit', 'Enter your desired total take-home amount, or a price per unit.')
             return cd
 
         fulfillment = cd.get('fulfillment_method')

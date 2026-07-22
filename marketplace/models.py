@@ -60,6 +60,15 @@ class User(AbstractUser):
     notify_email_new_market_order    = models.BooleanField(default=True, verbose_name='Email me when someone orders from my Market listing')
     notify_email_market_order_update = models.BooleanField(default=True, verbose_name='Email me when my Market order is accepted or declined')
 
+    # Market founding seller program — first MARKET_FOUNDING_SLOTS sellers
+    # (tradie or client) to post a Market listing get a badge + FJD $100
+    # platform fee credit, spent down automatically as their listings sell.
+    is_market_founding_member          = models.BooleanField(default=False, verbose_name='Market founding seller')
+    market_founding_credit_balance     = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal('0.00'),
+        verbose_name='Market founding seller credit balance (FJD)',
+    )
+
     USERNAME_FIELD  = 'email'
     REQUIRED_FIELDS = []
 
@@ -1097,6 +1106,10 @@ class MarketListing(models.Model):
 
     order_mode = models.CharField(max_length=10, choices=ORDER_MODE_CHOICES, default=ORDER_MODE_APPROVAL)
     available_dates = models.JSONField(default=list)  # list of 'YYYY-MM-DD' strings the buyer must choose from
+
+    # Whether the seller has opted to spend down their Market founding-seller
+    # credit (if any) against the platform fee on orders from this listing.
+    use_founding_credit = models.BooleanField(default=False, verbose_name='Apply founding seller credit to platform fees on this listing')
 
     status     = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_ACTIVE, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)

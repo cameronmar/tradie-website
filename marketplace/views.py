@@ -21,6 +21,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .constants import (
+    MARKET_FOUNDING_CREDIT,
+    MARKET_FOUNDING_SLOTS,
     PRIVATE_REVIEW_CRITERIA,
     PUBLIC_REVIEW_CRITERIA,
     TOWN_CHOICES,
@@ -989,6 +991,13 @@ def market_listing_detail(request, pk):
                             return redirect('market_listing_detail', pk=pk)
                         total_price = (locked.price_per_unit * cd['quantity']).quantize(Decimal('0.01'))
                         fee_amount = (total_price * locked.fee_rate_at_listing / Decimal('100')).quantize(Decimal('0.01'))
+                        if locked.use_founding_credit:
+                            seller_locked = User.objects.select_for_update().get(pk=locked.seller_id)
+                            if seller_locked.is_market_founding_member and seller_locked.market_founding_credit_balance > 0:
+                                discount = min(seller_locked.market_founding_credit_balance, fee_amount)
+                                fee_amount -= discount
+                                seller_locked.market_founding_credit_balance -= discount
+                                seller_locked.save(update_fields=['market_founding_credit_balance'])
                         order = MarketOrder.objects.create(
                             listing=locked,
                             buyer=request.user,
@@ -1040,14 +1049,53 @@ def create_market_listing(request):
             return approval_redirect
     elif request.user.role != User.ROLE_CLIENT:
         raise PermissionDenied
+
+    # First MARKET_FOUNDING_SLOTS sellers to post a listing become Market
+    # founding members — this is their first-ever listing and a slot is
+    # still open. Only used to decide whether to show the credit checkbox;
+    # the actual grant is re-checked for real (race-safe) at save time below.
+    is_new_founder_eligible = (
+        not request.user.is_market_founding_member
+        and not MarketListing.objects.filter(seller=request.user).exists()
+        and User.objects.filter(is_market_founding_member=True).count() < MARKET_FOUNDING_SLOTS
+    )
+    show_founding_credit = is_new_founder_eligible or (
+        request.user.is_market_founding_member and request.user.market_founding_credit_balance > 0
+    )
+
     form = MarketListingForm(request.POST or None, request.FILES or None)
+    if not show_founding_credit:
+        form.fields.pop('use_founding_credit', None)
+
     if request.method == 'POST' and form.is_valid():
-        listing = form.save(commit=False)
-        listing.seller = request.user
-        listing.save()
+        with transaction.atomic():
+            listing = form.save(commit=False)
+            listing.seller = request.user
+            if is_new_founder_eligible:
+                # Re-check under lock at save time — two sellers hitting
+                # "first listing" concurrently must not both slip in under
+                # the slot cap.
+                locked_user = User.objects.select_for_update().get(pk=request.user.pk)
+                if (
+                    not locked_user.is_market_founding_member
+                    and User.objects.filter(is_market_founding_member=True).count() < MARKET_FOUNDING_SLOTS
+                ):
+                    locked_user.is_market_founding_member = True
+                    locked_user.market_founding_credit_balance = Decimal(MARKET_FOUNDING_CREDIT)
+                    locked_user.save(update_fields=['is_market_founding_member', 'market_founding_credit_balance'])
+                    flash.success(request, f"You're one of our first {MARKET_FOUNDING_SLOTS} Market sellers — FJD ${MARKET_FOUNDING_CREDIT} platform fee credit added to your account!")
+            listing.save()
         flash.success(request, 'Listing posted to the Market!')
         return redirect('my_market_listings')
-    return render(request, 'marketplace/create_market_listing.html', {'form': form})
+    founding_credit_amount = (
+        request.user.market_founding_credit_balance
+        if request.user.is_market_founding_member
+        else Decimal(MARKET_FOUNDING_CREDIT)
+    )
+    return render(request, 'marketplace/create_market_listing.html', {
+        'form': form, 'show_founding_credit': show_founding_credit,
+        'founding_credit_amount': founding_credit_amount,
+    })
 
 
 @login_required
@@ -1119,16 +1167,28 @@ def calculate_market_price(request):
     vat_rate = Decimal(vat_rate) if (vat_applicable and vat_rate) else None
 
     try:
+        units = int(request.GET.get('units_available', '').strip() or '0')
+    except ValueError:
+        units = 0
+    if units <= 0:
+        return JsonResponse({'valid': False, 'error': 'units'})
+
+    try:
         if direction == 'price':
             price = Decimal(request.GET.get('price_per_unit', '').strip() or '0')
-            result = calculate_market_take_home(price, vat_rate)
+            result = calculate_market_take_home(price, units, vat_rate)
             if not result:
                 return JsonResponse({'valid': False})
-            take_home, fee_rate, fee_amount = result
-            return JsonResponse({'valid': True, 'take_home_per_unit': str(take_home), 'fee_rate': str(fee_rate), 'fee_amount': str(fee_amount)})
+            total_take_home, fee_rate, fee_amount = result
+            take_home_per_unit = (total_take_home / units).quantize(Decimal('0.01'))
+            return JsonResponse({
+                'valid': True, 'take_home_total': str(total_take_home),
+                'take_home_per_unit': str(take_home_per_unit),
+                'fee_rate': str(fee_rate), 'fee_amount': str(fee_amount),
+            })
         else:
-            take_home = Decimal(request.GET.get('take_home_per_unit', '').strip() or '0')
-            result = calculate_market_price_per_unit(take_home, vat_rate)
+            total_take_home = Decimal(request.GET.get('take_home_total', '').strip() or '0')
+            result = calculate_market_price_per_unit(total_take_home, units, vat_rate)
             if not result:
                 return JsonResponse({'valid': False})
             price, fee_rate, fee_amount = result

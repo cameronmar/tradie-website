@@ -55,12 +55,13 @@ from .utils import (
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     ordering = ['email']
-    list_display = ['email', 'first_name', 'last_name', 'role', 'town', 'is_active', 'date_joined']
-    list_filter  = ['role', 'town', 'is_active']
+    list_display = ['email', 'first_name', 'last_name', 'role', 'town', 'is_market_founding_member', 'is_active', 'date_joined']
+    list_filter  = ['role', 'town', 'is_market_founding_member', 'is_active']
     search_fields = ['email', 'first_name', 'last_name']
     fieldsets = (
         (None,           {'fields': ('email', 'password')}),
         ('Personal',     {'fields': ('first_name', 'last_name', 'mobile', 'town', 'role')}),
+        ('Market Founding Seller', {'fields': ('is_market_founding_member', 'market_founding_credit_balance')}),
         ('Permissions',  {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
         ('Dates',        {'fields': ('last_login', 'date_joined')}),
     )
@@ -945,8 +946,8 @@ class MarketOrderInline(admin.TabularInline):
 
 @admin.register(MarketListing)
 class MarketListingAdmin(admin.ModelAdmin):
-    list_display = ['title', 'seller', 'category', 'price_per_unit', 'units_remaining', 'units_available', 'status', 'order_mode', 'created_at']
-    list_filter = ['status', 'order_mode', 'fulfillment_method', 'category']
+    list_display = ['title', 'seller', 'category', 'price_per_unit', 'units_remaining', 'units_available', 'use_founding_credit', 'status', 'order_mode', 'created_at']
+    list_filter = ['status', 'order_mode', 'fulfillment_method', 'category', 'use_founding_credit']
     search_fields = ['title', 'seller__first_name', 'seller__last_name', 'seller__email']
     raw_id_fields = ['seller']
     readonly_fields = ['created_at', 'fee_rate_at_listing']

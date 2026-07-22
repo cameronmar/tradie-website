@@ -48,6 +48,12 @@
 
       <div class="form-card">
         <h2>Price calculator</h2>
+        <div class="field">
+          <label>Units / serves available</label>
+          {{ form.units_available }}
+          <div class="hint">How many are you selling? The calculator divides your total take-home across these to work out the price per unit.</div>
+          {% for e in form.units_available.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+        </div>
         <div class="check-row">
           {{ form.vat_applicable }}
           <span>Charge VAT on this item</span>
@@ -57,10 +63,11 @@
           {{ form.vat_rate }}
         </div>
         <div class="field">
-          <label>Desired take-home per unit (FJD $)</label>
+          <label>Desired total take-home (FJD $)</label>
           {{ form.take_home_per_unit }}
+          <div class="hint">How much do you want to take home in total across all units — VAT and the platform fee are added on top, then split across your units to set the price per unit.</div>
         </div>
-        <div style="text-align:center;color:var(--muted);font-size:.82rem;margin:8px 0;">— or enter a price directly and we'll work out your take-home —</div>
+        <div style="text-align:center;color:var(--muted);font-size:.82rem;margin:8px 0;">— or enter a price per unit directly and we'll work out your take-home —</div>
         <div class="field">
           <label>Price per unit (FJD $)</label>
           {{ form.price_per_unit }}
@@ -69,6 +76,7 @@
         <div class="calc-result" id="calc-result" style="display:none;">
           <div class="row"><span>Platform fee rate</span><span id="calc-fee-rate"></span></div>
           <div class="row"><span>Platform fee</span><span id="calc-fee-amount"></span></div>
+          <div class="row"><span>Total take-home</span><span id="calc-take-home-total"></span></div>
           <div class="row"><span>Take-home per unit</span><span id="calc-take-home"></span></div>
           <div class="row"><span>Buyer pays per unit</span><span id="calc-price"></span></div>
         </div>
@@ -76,15 +84,16 @@
         {% for e in form.take_home_per_unit.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
         {% for e in form.price_per_unit.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
         {% for e in form.vat_rate.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
+        {% if show_founding_credit %}
+        <div class="check-row" style="margin-top:14px;border-top:1px solid var(--blue-light);padding-top:14px;">
+          {{ form.use_founding_credit }}
+          <span>🌟 Apply my founding seller credit (FJD ${{ founding_credit_amount }}) to reduce the platform fee on orders from this listing</span>
+        </div>
+        {% endif %}
       </div>
 
       <div class="form-card">
         <h2>Availability</h2>
-        <div class="field">
-          <label>Units available</label>
-          {{ form.units_available }}
-          {% for e in form.units_available.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
-        </div>
         <div class="field">
           <label>Available dates</label>
           <div id="date-rows"></div>
@@ -205,6 +214,7 @@
   var takeHomeInput = document.getElementById('id_take_home_per_unit');
   var priceInput = document.getElementById('id_price_per_unit');
   var vatRateInput = document.getElementById('id_vat_rate');
+  var unitsInput = document.getElementById('id_units_available');
   var calcDirectionInput = document.getElementById('id_calc_direction');
   var calcUrl = '{% url "calculate_market_price" %}';
 
@@ -223,14 +233,20 @@
   });
 
   function runCalculation(direction){
+    var units = parseInt(unitsInput.value, 10);
+    if (!units || units <= 0) {
+      alert('Enter how many units/serves are available first.');
+      return Promise.resolve();
+    }
     var params = new URLSearchParams();
     params.set('direction', direction);
     params.set('vat_applicable', vatCheckbox.checked ? 'true' : 'false');
     params.set('vat_rate', vatRateInput.value || '');
+    params.set('units_available', units);
     if (direction === 'price') {
       params.set('price_per_unit', priceInput.value || '');
     } else {
-      params.set('take_home_per_unit', takeHomeInput.value || '');
+      params.set('take_home_total', takeHomeInput.value || '');
     }
     return fetch(calcUrl + '?' + params.toString())
       .then(function(r){ return r.json(); })
@@ -240,13 +256,15 @@
         document.getElementById('calc-fee-rate').textContent = data.fee_rate + '%';
         document.getElementById('calc-fee-amount').textContent = 'FJD $' + data.fee_amount;
         if (direction === 'price') {
-          takeHomeInput.value = data.take_home_per_unit;
+          takeHomeInput.value = data.take_home_total;
+          document.getElementById('calc-take-home-total').textContent = 'FJD $' + data.take_home_total;
           document.getElementById('calc-take-home').textContent = 'FJD $' + data.take_home_per_unit;
           document.getElementById('calc-price').textContent = 'FJD $' + priceInput.value;
         } else {
           priceInput.value = data.price_per_unit;
           document.getElementById('calc-price').textContent = 'FJD $' + data.price_per_unit;
-          document.getElementById('calc-take-home').textContent = 'FJD $' + takeHomeInput.value;
+          document.getElementById('calc-take-home-total').textContent = 'FJD $' + takeHomeInput.value;
+          document.getElementById('calc-take-home').textContent = 'FJD $' + (takeHomeInput.value / units).toFixed(2);
         }
         document.getElementById('calc-result').style.display = 'block';
       });

@@ -40,6 +40,13 @@ EXPERIENCE_CHOICES = [
 FOUNDING_MEMBER_SLOTS = 20
 FOUNDING_MEMBER_CREDIT = '200.00'
 
+# Market founding seller program — the first N sellers (tradie or client) to
+# post a Market listing get a platform fee credit, spent down automatically
+# as their listings sell. Separate pool from the job founding-member program
+# above since Market sellers aren't necessarily tradies.
+MARKET_FOUNDING_SLOTS = 100
+MARKET_FOUNDING_CREDIT = '100.00'
+
 # ──────────────────────────────────────────────────────────────────────
 # PUBLIC review criteria (client → provider).  Shown on provider profile.
 # ──────────────────────────────────────────────────────────────────────
