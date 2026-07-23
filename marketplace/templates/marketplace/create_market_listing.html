@@ -12,8 +12,11 @@
 .town-chip{display:flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px solid #cce4ef;border-radius:20px;font-size:.85rem;cursor:pointer;}
 .town-chip input{accent-color:var(--blue);}
 .town-chip:has(input:checked){border-color:var(--blue);background:var(--blue-light);color:var(--blue);font-weight:600;}
+.check-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;font-size:.88rem;line-height:1.5;}
+.check-row input{margin-top:3px;accent-color:var(--blue);width:18px;height:18px;flex-shrink:0;}
 .calc-result{background:var(--blue-light);border-radius:10px;padding:14px;margin-top:12px;font-size:.88rem;}
-.calc-result .row{display:flex;justify-content:space-between;padding:3px 0;}
+.calc-result .row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed rgba(0,80,120,.12);}
+.calc-result .row:last-child{border-bottom:none;font-weight:700;padding-top:8px;}
 .date-row{display:flex;gap:8px;margin-bottom:8px;align-items:center;}
 .date-row input[type=date]{flex:1;}
 .date-row .remove-date{background:#fdf2ec;color:#c0392b;flex-shrink:0;}
@@ -73,13 +76,7 @@
           {{ form.price_per_unit }}
         </div>
         <button type="button" id="calc-btn" class="btn btn-outline-blue" style="width:100%;">Calculate</button>
-        <div class="calc-result" id="calc-result" style="display:none;">
-          <div class="row"><span>Platform fee rate</span><span id="calc-fee-rate"></span></div>
-          <div class="row"><span>Platform fee</span><span id="calc-fee-amount"></span></div>
-          <div class="row"><span>Total take-home</span><span id="calc-take-home-total"></span></div>
-          <div class="row"><span>Take-home per unit</span><span id="calc-take-home"></span></div>
-          <div class="row"><span>Buyer pays per unit</span><span id="calc-price"></span></div>
-        </div>
+        <div class="calc-result" id="calc-result" style="display:none;"></div>
         {{ form.calc_direction }}
         {% for e in form.take_home_per_unit.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
         {% for e in form.price_per_unit.errors %}<div class="field-error">{{ e }}</div>{% endfor %}
@@ -232,6 +229,37 @@
     calcDirectionInput.value = (priceInput.value && !takeHomeInput.value) ? 'price' : 'take_home';
   });
 
+  function renderBreakdown(direction, data){
+    var rows;
+    if (direction === 'take_home') {
+      rows = [
+        ['Take-home (total)',                          'FJD $' + data.take_home_total],
+        ['+ VAT (' + data.vat_rate + '%)',              'FJD $' + data.vat_amount],
+        ['Subtotal after VAT',                          'FJD $' + data.subtotal_after_vat],
+        ['+ Platform fee (' + data.fee_rate + '%)',     'FJD $' + data.fee_amount],
+        ['Total price',                                 'FJD $' + data.total_price],
+        ['÷ Units available',                           data.units],
+        ['= Price per unit',                            'FJD $' + data.price_per_unit],
+      ];
+    } else {
+      rows = [
+        ['Price per unit',                              'FJD $' + data.price_per_unit],
+        ['× Units available',                           data.units],
+        ['Total price',                                 'FJD $' + data.total_price],
+        ['− Platform fee (' + data.fee_rate + '%)',     'FJD $' + data.fee_amount],
+        ['Subtotal after fee',                          'FJD $' + data.subtotal_after_fee],
+        ['− VAT (' + data.vat_rate + '%)',              'FJD $' + data.vat_amount],
+        ['= Take-home (total)',                         'FJD $' + data.take_home_total],
+        ['Take-home per unit',                          'FJD $' + data.take_home_per_unit],
+      ];
+    }
+    var resultEl = document.getElementById('calc-result');
+    resultEl.innerHTML = rows.map(function(r){
+      return '<div class="row"><span>' + r[0] + '</span><span>' + r[1] + '</span></div>';
+    }).join('');
+    resultEl.style.display = 'block';
+  }
+
   function runCalculation(direction){
     var units = parseInt(unitsInput.value, 10);
     if (!units || units <= 0) {
@@ -253,20 +281,12 @@
       .then(function(data){
         if (!data.valid) { alert('Enter a valid amount to calculate.'); return; }
         calcDirectionInput.value = direction;
-        document.getElementById('calc-fee-rate').textContent = data.fee_rate + '%';
-        document.getElementById('calc-fee-amount').textContent = 'FJD $' + data.fee_amount;
         if (direction === 'price') {
           takeHomeInput.value = data.take_home_total;
-          document.getElementById('calc-take-home-total').textContent = 'FJD $' + data.take_home_total;
-          document.getElementById('calc-take-home').textContent = 'FJD $' + data.take_home_per_unit;
-          document.getElementById('calc-price').textContent = 'FJD $' + priceInput.value;
         } else {
           priceInput.value = data.price_per_unit;
-          document.getElementById('calc-price').textContent = 'FJD $' + data.price_per_unit;
-          document.getElementById('calc-take-home-total').textContent = 'FJD $' + takeHomeInput.value;
-          document.getElementById('calc-take-home').textContent = 'FJD $' + (takeHomeInput.value / units).toFixed(2);
         }
-        document.getElementById('calc-result').style.display = 'block';
+        renderBreakdown(direction, data);
       });
   }
 

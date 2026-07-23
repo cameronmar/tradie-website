@@ -1221,22 +1221,12 @@ def calculate_market_price(request):
     try:
         if direction == 'price':
             price = Decimal(request.GET.get('price_per_unit', '').strip() or '0')
-            result = calculate_market_take_home(price, units, vat_rate)
-            if not result:
-                return JsonResponse({'valid': False})
-            total_take_home, fee_rate, fee_amount = result
-            take_home_per_unit = (total_take_home / units).quantize(Decimal('0.01'))
-            return JsonResponse({
-                'valid': True, 'take_home_total': str(total_take_home),
-                'take_home_per_unit': str(take_home_per_unit),
-                'fee_rate': str(fee_rate), 'fee_amount': str(fee_amount),
-            })
+            breakdown = calculate_market_take_home(price, units, vat_rate)
         else:
             total_take_home = Decimal(request.GET.get('take_home_total', '').strip() or '0')
-            result = calculate_market_price_per_unit(total_take_home, units, vat_rate)
-            if not result:
-                return JsonResponse({'valid': False})
-            price, fee_rate, fee_amount = result
-            return JsonResponse({'valid': True, 'price_per_unit': str(price), 'fee_rate': str(fee_rate), 'fee_amount': str(fee_amount)})
+            breakdown = calculate_market_price_per_unit(total_take_home, units, vat_rate)
+        if not breakdown:
+            return JsonResponse({'valid': False})
+        return JsonResponse({'valid': True, **{k: str(v) for k, v in breakdown.items()}})
     except Exception:
         return JsonResponse({'valid': False})

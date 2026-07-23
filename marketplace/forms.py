@@ -498,23 +498,23 @@ class MarketListingForm(forms.ModelForm):
         from .utils import calculate_market_price_per_unit, calculate_market_take_home
         direction = cd.get('calc_direction') or 'take_home'
         if direction == 'price' and cd.get('price_per_unit'):
-            result = calculate_market_take_home(cd['price_per_unit'], units_available, vat_rate)
-            if not result:
+            breakdown = calculate_market_take_home(cd['price_per_unit'], units_available, vat_rate)
+            if not breakdown:
                 self.add_error('price_per_unit', 'Could not calculate — check the price and try again.')
                 return cd
-            total_take_home, self.fee_rate_at_listing, _fee = result
-            cd['take_home_per_unit'] = (total_take_home / units_available).quantize(Decimal('0.01'))
+            self.fee_rate_at_listing = breakdown['fee_rate']
+            cd['take_home_per_unit'] = breakdown['take_home_per_unit']
         elif cd.get('take_home_per_unit'):
             # This field holds the seller's desired TOTAL take-home (see the
-            # widget comment in Meta) — divide by units below to get the
-            # true per-unit amount the model field stores.
-            total_take_home = cd['take_home_per_unit']
-            result = calculate_market_price_per_unit(total_take_home, units_available, vat_rate)
-            if not result:
+            # widget comment in Meta) — the breakdown divides by units to get
+            # the true per-unit amount the model field stores.
+            breakdown = calculate_market_price_per_unit(cd['take_home_per_unit'], units_available, vat_rate)
+            if not breakdown:
                 self.add_error('take_home_per_unit', 'Could not calculate — check the amount and try again.')
                 return cd
-            cd['price_per_unit'], self.fee_rate_at_listing, _fee = result
-            cd['take_home_per_unit'] = (total_take_home / units_available).quantize(Decimal('0.01'))
+            cd['price_per_unit'] = breakdown['price_per_unit']
+            self.fee_rate_at_listing = breakdown['fee_rate']
+            cd['take_home_per_unit'] = breakdown['take_home_per_unit']
         else:
             self.add_error('take_home_per_unit', 'Enter your desired total take-home amount, or a price per unit.')
             return cd

@@ -182,24 +182,30 @@ def calculate_quote_without_platform_fee(quote_total, settings=None):
     }
 
 
+def _q2(value):
+    return value.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+
 def calculate_market_price_per_unit(total_take_home, units, vat_rate=None, settings=None):
     """
     Market listing calculator, take-home → price direction. Given the
     seller's desired TOTAL take-home across the whole batch, the number of
     units/serves, and an optional VAT rate, compute the buyer-facing price
-    per unit.
-
-    VAT and the platform fee are both taken as a percentage of the final
-    price (not stacked in a particular order) — mathematically equivalent
-    either way since (1-a)(1-b) = (1-b)(1-a), so:
-        total_price = total_take_home / [(1 - vat_rate/100) * (1 - fee_rate/100)]
-        price_per_unit = total_price / units
+    per unit — as a full step-by-step breakdown so the seller can see exactly
+    how the price was built up:
+        1. take_home_total                              (what they entered)
+        2. + vat_amount   -> subtotal_after_vat = take_home_total / (1 - vat_rate/100)
+        3. + fee_amount   -> total_price        = subtotal_after_vat / (1 - fee_rate/100)
+        4. ÷ units        -> price_per_unit     = total_price / units
 
     Uses the flat success_fee_rate (not the large-job tiered rate) since
-    Market pricing doesn't have a natural "job value" to tier on.
+    Market pricing doesn't have a natural "job value" to tier on. Dividing
+    by (1 - vat)(1 - fee) in two steps (rather than one combined multiplier)
+    is mathematically identical — division is associative — but lets the UI
+    show VAT and the platform fee as distinct line items.
 
-    Returns: (price_per_unit, fee_rate, fee_amount_per_unit) — all Decimal,
-    price/fee quantized to cents.
+    Returns a dict of Decimals (all money values quantized to cents), or
+    None if the inputs/settings are invalid.
     """
     if settings is None:
         settings = get_active_platform_settings()
@@ -207,20 +213,37 @@ def calculate_market_price_per_unit(total_take_home, units, vat_rate=None, setti
         return None
 
     fee_rate = Decimal(str(settings.success_fee_rate))
-    vat_multiplier = (Decimal('1') - (Decimal(str(vat_rate)) / Decimal('100'))) if vat_rate else Decimal('1')
+    vat_rate = Decimal(str(vat_rate)) if vat_rate else Decimal('0')
+    vat_multiplier = Decimal('1') - (vat_rate / Decimal('100'))
     fee_multiplier = Decimal('1') - (fee_rate / Decimal('100'))
     if vat_multiplier <= 0 or fee_multiplier <= 0:
         return None
 
-    total_price = total_take_home / (vat_multiplier * fee_multiplier)
-    total_fee = total_price * fee_rate / Decimal('100')
-    price_per_unit = total_price / units
-    fee_per_unit = total_fee / units
-    return (
-        price_per_unit.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-        fee_rate,
-        fee_per_unit.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-    )
+    # Each running total is quantized to cents as soon as it's derived, and
+    # every "+" line item is then taken as the difference between two
+    # already-quantized totals (rather than independently rounding each
+    # piece from unrounded intermediate math) — so the displayed breakdown
+    # always adds up exactly to the cent, with no off-by-a-cent rows.
+    take_home_total = _q2(total_take_home)
+    subtotal_after_vat = _q2(take_home_total / vat_multiplier)
+    vat_amount = subtotal_after_vat - take_home_total
+    total_price = _q2(subtotal_after_vat / fee_multiplier)
+    fee_amount = total_price - subtotal_after_vat
+    price_per_unit = _q2(total_price / units)
+    take_home_per_unit = _q2(take_home_total / units)
+
+    return {
+        'take_home_total':     take_home_total,
+        'take_home_per_unit':  take_home_per_unit,
+        'vat_rate':            vat_rate,
+        'vat_amount':          vat_amount,
+        'subtotal_after_vat':  subtotal_after_vat,
+        'fee_rate':            fee_rate,
+        'fee_amount':          fee_amount,
+        'total_price':         total_price,
+        'units':               units,
+        'price_per_unit':      price_per_unit,
+    }
 
 
 def calculate_market_take_home(price_per_unit, units, vat_rate=None, settings=None):
@@ -228,13 +251,14 @@ def calculate_market_take_home(price_per_unit, units, vat_rate=None, settings=No
     Market listing calculator, price → take-home direction (working
     backwards, as requested — the seller can enter a price per unit directly
     instead of a take-home target). Given the price per unit and the number
-    of units/serves, compute the TOTAL take-home across the whole batch:
-        total_price = price_per_unit * units
-        total_fee = total_price * fee_rate/100
-        total_take_home = (total_price - total_fee) * (1 - vat_rate/100)
+    of units/serves, compute the full breakdown the other way:
+        1. price_per_unit × units -> total_price
+        2. - fee_amount           -> subtotal_after_fee = total_price - total_price * fee_rate/100
+        3. - vat_amount           -> take_home_total     = subtotal_after_fee * (1 - vat_rate/100)
+        4. ÷ units                -> take_home_per_unit
 
-    Returns: (total_take_home, fee_rate, total_fee_amount) — all Decimal,
-    quantized to cents.
+    Returns a dict of Decimals (all money values quantized to cents), or
+    None if the inputs/settings are invalid.
     """
     if settings is None:
         settings = get_active_platform_settings()
@@ -242,16 +266,31 @@ def calculate_market_take_home(price_per_unit, units, vat_rate=None, settings=No
         return None
 
     fee_rate = Decimal(str(settings.success_fee_rate))
-    total_price = price_per_unit * units
-    total_fee = total_price * fee_rate / Decimal('100')
-    after_fee = total_price - total_fee
-    vat_multiplier = (Decimal('1') - (Decimal(str(vat_rate)) / Decimal('100'))) if vat_rate else Decimal('1')
-    total_take_home = after_fee * vat_multiplier
-    return (
-        total_take_home.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-        fee_rate,
-        total_fee.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
-    )
+    vat_rate = Decimal(str(vat_rate)) if vat_rate else Decimal('0')
+    vat_multiplier = Decimal('1') - (vat_rate / Decimal('100'))
+
+    # Same running-total-then-derive-the-delta approach as the take-home
+    # direction above, so the displayed breakdown always adds up exactly.
+    price_per_unit = _q2(price_per_unit)
+    total_price = _q2(price_per_unit * units)
+    fee_amount = _q2(total_price * fee_rate / Decimal('100'))
+    subtotal_after_fee = total_price - fee_amount
+    take_home_total = _q2(subtotal_after_fee * vat_multiplier)
+    vat_amount = subtotal_after_fee - take_home_total
+    take_home_per_unit = _q2(take_home_total / units)
+
+    return {
+        'price_per_unit':      price_per_unit,
+        'units':               units,
+        'total_price':         total_price,
+        'fee_rate':            fee_rate,
+        'fee_amount':          fee_amount,
+        'subtotal_after_fee':  subtotal_after_fee,
+        'vat_rate':            vat_rate,
+        'vat_amount':          vat_amount,
+        'take_home_total':     take_home_total,
+        'take_home_per_unit':  take_home_per_unit,
+    }
 
 
 def create_platform_fee_for_task(task, final_job_value):

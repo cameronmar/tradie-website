@@ -49,6 +49,16 @@ nav a:hover{background:rgba(255,255,255,.15);}
 .chip-requested{background:#fff8e6;color:var(--orange);}
 .chip-cancelled{background:#fdf2ec;color:#c0392b;}
 .chip-no_show{background:#fdf2ec;color:#c0392b;}
+.chip-active{background:#e8f8f0;color:var(--green);}
+.chip-closed{background:#f0f0f0;color:#666;}
+.chip-fulfilled{background:#e8f8f0;color:var(--green);}
+.chip-draft{background:#f0f0f0;color:#666;}
+.chip-sent{background:var(--blue-light);color:var(--blue);}
+.chip-paid{background:#e8f8f0;color:var(--green);}
+.chip-overdue{background:#fdf2ec;color:#c0392b;}
+.chip-void{background:#f0f0f0;color:#666;}
+.chip-in_progress{background:var(--blue-light);color:var(--blue);}
+.chip-disputed{background:#fdf2ec;color:#c0392b;}
 /* Footer */
 footer{background:#1a2e3b;color:#8ba4b3;text-align:center;padding:22px;font-size:.85rem;}
 footer a{color:#8ba4b3;text-decoration:none;}
