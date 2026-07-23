@@ -167,9 +167,12 @@ def privacy(request):
 
 def contact_support(request):
     """
-    Sitewide "Contact" link (footer). Lets clients and local professionals send a
-    message straight to the admin inbox, Reply-To set to their own address
-    so replying from the admin's inbox goes directly back to them.
+    Sitewide "Contact" page (footer link, and a dashboard sidebar link for
+    logged-in users since the footer is hidden inside the dashboard layout).
+    Includes a "Report a problem" topic alongside general inquiries. Lets
+    clients and local professionals send a message straight to the admin
+    inbox, Reply-To set to their own address so replying from the admin's
+    inbox goes directly back to them.
     """
     if request.method == 'POST':
         form = ContactSupportForm(request.POST)
@@ -179,10 +182,12 @@ def contact_support(request):
                 who = f'{request.user.full_name} ({request.user.email}, {request.user.get_role_display()})'
             else:
                 who = f'{cd["name"]} ({cd["email"]}) — not logged in'
+            topic_label = dict(ContactSupportForm.TOPIC_CHOICES).get(cd['topic'], cd['topic'])
             notify_admin(
-                subject=f'Contact form: {cd["subject"]}',
+                subject=f'[{topic_label}] {cd["subject"]}',
                 body=(
                     f'From: {who}\n'
+                    f'Topic: {topic_label}\n'
                     f'Time: {timezone.now().strftime("%d %B %Y, %H:%M")} UTC\n\n'
                     f'{cd["message"]}'
                 ),
@@ -196,6 +201,9 @@ def contact_support(request):
         initial = {}
         if request.user.is_authenticated:
             initial = {'name': request.user.full_name, 'email': request.user.email}
+        requested_topic = request.GET.get('topic')
+        if requested_topic in dict(ContactSupportForm.TOPIC_CHOICES):
+            initial['topic'] = requested_topic
         form = ContactSupportForm(initial=initial)
 
     return render(request, 'marketplace/support_contact.html', {'form': form})

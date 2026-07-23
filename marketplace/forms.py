@@ -382,6 +382,13 @@ class PrivateReviewForm(forms.Form):
 # ── Contact / Support form ───────────────────────────────────────────────────
 
 class ContactSupportForm(forms.Form):
+    TOPIC_GENERAL        = 'general'
+    TOPIC_REPORT_PROBLEM = 'report_problem'
+    TOPIC_CHOICES = [
+        (TOPIC_GENERAL,        'General inquiry'),
+        (TOPIC_REPORT_PROBLEM, 'Report a problem'),
+    ]
+    topic   = forms.ChoiceField(choices=TOPIC_CHOICES, initial=TOPIC_GENERAL, widget=_select())
     name    = forms.CharField(max_length=100, widget=_input('Your name'))
     email   = forms.EmailField(widget=_input('you@example.fj', type_='email'))
     subject = forms.CharField(max_length=150, widget=_input('What can we help with?'))
