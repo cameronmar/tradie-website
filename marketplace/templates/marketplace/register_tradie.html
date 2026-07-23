@@ -154,18 +154,20 @@
         </div>
 
         <div class="field conditional-doc" id="electrical-licence-field">
-          <label>Electrical Contractors Licence <span class="required-badge">Required for Electrical</span></label>
+          <label>Electrical Contractors Licence <span class="required-badge">Needed before you can bid</span></label>
           <div class="upload-field">
             {{ form.electrical_contractors_licence }}
           </div>
+          <div class="hint">Electrical work is safety-critical — you can register without it, but your account can't bid on jobs until our team has reviewed it.</div>
           {% for e in form.electrical_contractors_licence.errors %}<div class="field-error">{{e}}</div>{% endfor %}
         </div>
 
         <div class="field conditional-doc" id="plumber-licence-field">
-          <label>Plumber Licence <span class="required-badge">Required for Plumbing</span></label>
+          <label>Plumber Licence <span class="required-badge">Needed before you can bid</span></label>
           <div class="upload-field">
             {{ form.plumber_licence }}
           </div>
+          <div class="hint">Plumbing work is safety-critical — you can register without it, but your account can't bid on jobs until our team has reviewed it.</div>
           {% for e in form.plumber_licence.errors %}<div class="field-error">{{e}}</div>{% endfor %}
         </div>
       </div>

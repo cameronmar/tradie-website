@@ -95,8 +95,8 @@ class TradieRegistrationForm(forms.Form):
     tin_letter                    = forms.FileField(label='TIN Letter', help_text='Upload your FRCA TIN letter (PDF or image). Required.')
     business_licence              = forms.FileField(label='Business Licence', required=False, help_text='Optional.')
     public_liability_insurance    = forms.FileField(label='Public Liability Insurance', required=False, help_text='Optional.')
-    electrical_contractors_licence = forms.FileField(label='Electrical Contractors Licence', required=False, help_text='Required if Electrical is selected.')
-    plumber_licence               = forms.FileField(label='Plumber Licence', required=False, help_text='Required if Plumbing is selected.')
+    electrical_contractors_licence = forms.FileField(label='Electrical Contractors Licence', required=False, help_text="Electrical work is safety-critical — upload this now if you have it. If not, you can still register, but your account won't be able to bid on jobs until our team has reviewed it.")
+    plumber_licence               = forms.FileField(label='Plumber Licence', required=False, help_text="Plumbing work is safety-critical — upload this now if you have it. If not, you can still register, but your account won't be able to bid on jobs until our team has reviewed it.")
     # Terms acceptance
     accepted_terms                = forms.BooleanField(
         required=True,
@@ -127,11 +127,6 @@ class TradieRegistrationForm(forms.Form):
         p1, p2 = cd.get('password'), cd.get('password_confirm')
         if p1 and p2 and p1 != p2:
             raise ValidationError('Passwords do not match.')
-        trades = cd.get('trades', [])
-        if 'electrical' in trades and not cd.get('electrical_contractors_licence'):
-            self.add_error('electrical_contractors_licence', 'Electrical Contractors Licence is required when Electrical is selected.')
-        if 'plumbing' in trades and not cd.get('plumber_licence'):
-            self.add_error('plumber_licence', 'Plumber Licence is required when Plumbing is selected.')
         return cd
 
     def save(self):

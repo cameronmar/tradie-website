@@ -1,0 +1,45 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div id="content-main">
+  <h1>Migrate {{ user_obj }} to Local Professional</h1>
+  <div class="module" style="padding:10px 12px;margin-bottom:15px;">
+    <p style="margin:4px 0;"><strong>Name:</strong> {{ user_obj.full_name }}</p>
+    <p style="margin:4px 0;"><strong>Email:</strong> {{ user_obj.email }}</p>
+    <p style="margin:4px 0;"><strong>Current town:</strong> {{ user_obj.town|default:"—" }}</p>
+  </div>
+  <p>This switches the account from client to local professional (their email and password stay the same), creates a local professional profile pending verification, and emails them to log back in on the local pro side.</p>
+
+  <form method="post">
+    {% csrf_token %}
+    <fieldset class="module aligned">
+      <div class="form-row">
+        <div>
+          <label for="id_business_name">Business name (optional):</label>
+          <input type="text" name="business_name" id="id_business_name" value="{{ business_name_value }}" style="width:320px;">
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Trades:</label>
+          {% for slug, label in trade_choices %}
+            <div><label style="font-weight:normal;"><input type="checkbox" name="trades" value="{{ slug }}" {% if slug in selected_trades %}checked{% endif %}> {{ label }}</label></div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Service towns:</label>
+          {% for value, label in town_choices %}
+            <div><label style="font-weight:normal;"><input type="checkbox" name="service_towns" value="{{ value }}" {% if value in selected_towns %}checked{% endif %}> {{ label }}</label></div>
+          {% endfor %}
+        </div>
+      </div>
+    </fieldset>
+    <div class="submit-row">
+      <input type="submit" value="Migrate to Local Professional" class="default">
+      <a href="{% url 'admin:marketplace_user_changelist' %}" class="button cancel-link" style="margin-left:10px;">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

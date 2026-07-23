@@ -220,7 +220,7 @@
         {% if user.is_authenticated and user.role == 'tradie' and not tradie_can_participate and task.status == 'open' %}
         <div class="sect-card">
           <div class="action-banner" style="margin:0;">
-            Your local professional account is {{ user.tradie_profile.get_verification_status_display|lower }}. Quoting and appointment requests are disabled — please contact support.
+            {{ user.tradie_profile.quote_block_reason }}
           </div>
         </div>
         {% endif %}

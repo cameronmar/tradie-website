@@ -125,6 +125,15 @@ class TradieProfile(models.Model):
     documents_verified            = models.BooleanField(default=False, verbose_name='Documents verified by admin')
     verification_notes            = models.TextField(blank=True, verbose_name='Verification notes (admin only)')
 
+    # Electrical/Plumbing are safety-critical trades — those tradies can
+    # register without their licence documents (rather than being blocked at
+    # signup), but can't bid on any job until an admin has reviewed those
+    # documents and ticked this on, regardless of overall verification_status.
+    safety_documents_reviewed     = models.BooleanField(
+        default=False,
+        verbose_name='Safety documents reviewed (Electrical/Plumbing licence)',
+    )
+
     # Founding member program — first 20 tradies get a badge + FJD $200 platform
     # fee credit, spent down automatically as their jobs complete.
     is_founding_member             = models.BooleanField(default=False, verbose_name='Founding member')
@@ -144,11 +153,43 @@ class TradieProfile(models.Model):
     def is_approved(self):
         return self.verification_status == self.VERIFICATION_APPROVED
 
+    def is_admin_restricted(self):
+        """True if an admin has rejected/suspended this account (distinct
+        from the safety-document-review hold below, which isn't punitive —
+        used to pick the right tone/wording in the UI)."""
+        return self.verification_status in (self.VERIFICATION_REJECTED, self.VERIFICATION_SUSPENDED)
+
+    SAFETY_CRITICAL_TRADES = {'electrical', 'plumbing'}
+
+    def requires_safety_document_review(self):
+        return bool(set(self.trades or []) & self.SAFETY_CRITICAL_TRADES)
+
     def can_quote(self):
         """Pending tradies may browse and quote while awaiting verification —
         only rejected/suspended accounts are blocked. Clients see a pending
-        badge on their profile and quotes in the meantime."""
-        return self.verification_status in (self.VERIFICATION_PENDING, self.VERIFICATION_APPROVED)
+        badge on their profile and quotes in the meantime. Electrical/Plumbing
+        tradies are an exception on top of that: safety-critical work, so they
+        can't bid at all until their licence documents are specifically
+        reviewed, independent of overall verification_status."""
+        if self.verification_status not in (self.VERIFICATION_PENDING, self.VERIFICATION_APPROVED):
+            return False
+        if self.requires_safety_document_review() and not self.safety_documents_reviewed:
+            return False
+        return True
+
+    def quote_block_reason(self):
+        """Human-readable reason quoting/appointments are disabled, or '' if allowed."""
+        if self.verification_status == self.VERIFICATION_REJECTED:
+            return 'Your local professional account verification was rejected. Please contact support.'
+        if self.verification_status == self.VERIFICATION_SUSPENDED:
+            return 'Your local professional account is suspended. Please contact support.'
+        if self.requires_safety_document_review() and not self.safety_documents_reviewed:
+            return (
+                'Electrical and Plumbing work is safety-critical, so we need to review your licence '
+                "documents before you can bid on jobs. If you haven't already sent them, please "
+                'contact support — our team will review them and enable bidding shortly.'
+            )
+        return ''
 
     def trades_display(self):
         lookup = TradeCategory.get_label_map()
@@ -992,6 +1033,7 @@ class PlatformNotice(models.Model):
     TYPE_NEW_JOB_MATCH     = 'new_job_match'
     TYPE_NEW_MARKET_ORDER  = 'new_market_order'
     TYPE_MARKET_ORDER_UPDATE = 'market_order_update'
+    TYPE_ACCOUNT_MIGRATED  = 'account_migrated'
     TYPE_CHOICES = [
         (TYPE_WELCOME,          'Welcome Message'),
         (TYPE_INVOICE,          'Invoice Notice'),
@@ -1004,6 +1046,7 @@ class PlatformNotice(models.Model):
         (TYPE_NEW_JOB_MATCH,    'New Job Match'),
         (TYPE_NEW_MARKET_ORDER, 'New Market Order'),
         (TYPE_MARKET_ORDER_UPDATE, 'Market Order Update'),
+        (TYPE_ACCOUNT_MIGRATED, 'Account Migrated to Local Professional'),
     ]
 
     CHANNEL_EMAIL       = 'email'

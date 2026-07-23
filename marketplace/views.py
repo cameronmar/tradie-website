@@ -96,7 +96,9 @@ def _get_tradie_profile(user):
 def _require_quoting_tradie(request):
     """Gate for actions that place a quote/appointment request. Pending
     tradies are allowed through (they can quote while awaiting verification —
-    clients see a pending badge) — only rejected/suspended accounts are blocked."""
+    clients see a pending badge) — only rejected/suspended accounts, and
+    Electrical/Plumbing tradies whose safety documents haven't been reviewed
+    yet, are blocked. See TradieProfile.can_quote()/quote_block_reason()."""
     if not request.user.is_authenticated:
         raise PermissionDenied
     if request.user.role != User.ROLE_TRADIE:
@@ -106,11 +108,8 @@ def _require_quoting_tradie(request):
     if not profile:
         flash.warning(request, 'Your local professional profile could not be found. Please contact support.')
         return redirect('tradie_dashboard')
-    if profile.verification_status == TradieProfile.VERIFICATION_REJECTED:
-        flash.error(request, 'Your local professional account verification was rejected. Please contact support.')
-        return redirect('tradie_dashboard')
-    if profile.verification_status == TradieProfile.VERIFICATION_SUSPENDED:
-        flash.error(request, 'Your local professional account is suspended. Please contact support.')
+    if not profile.can_quote():
+        flash.error(request, profile.quote_block_reason())
         return redirect('tradie_dashboard')
     return None
 

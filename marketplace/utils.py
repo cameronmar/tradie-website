@@ -907,6 +907,33 @@ def notify_matching_tradies_new_job(task):
         _send_email_notice(profile.user, subject, body, PlatformNotice.TYPE_NEW_JOB_MATCH)
 
 
+def notify_client_migrated_to_tradie(user):
+    """
+    Notify a user whose account an admin has just migrated from client to
+    local professional (tradie) — e.g. someone who mistakenly registered as
+    a client. Not gated by an email preference (unlike the opt-in notices
+    above): this is a one-off account-level change the user needs to know
+    about regardless, not a recurring activity notification.
+    """
+    subject = 'Your Coconut Wireless Network account is now a Local Professional account'
+    body = (
+        f'Bula {user.first_name},\n\n'
+        f'Your Coconut Wireless Network account has been switched from a client account '
+        f'to a local professional account.\n\n'
+        f'Please log in using the same email and password as before — you will now land on '
+        f'the local professional side of the platform, where you can browse open jobs, send '
+        f'quotes, and sell on the Market.\n\n'
+        f'Please take a moment to complete your local professional profile (business name, '
+        f'experience, and verification documents) so clients can find and quote you with confidence.\n\n'
+        f'Vinaka,\nThe Coconut Wireless Network Team'
+    )
+    PlatformNotice.objects.create(
+        recipient=user, notice_type=PlatformNotice.TYPE_ACCOUNT_MIGRATED,
+        channel=PlatformNotice.CHANNEL_IN_PLATFORM, subject=subject, body=body,
+    )
+    _send_email_notice(user, subject, body, PlatformNotice.TYPE_ACCOUNT_MIGRATED)
+
+
 def notify_seller_new_market_order(order):
     """Notify a seller that a new Market order was placed. Always logs an
     in-platform notice; email is sent only if opted in (default on)."""

@@ -8,12 +8,14 @@ from decimal import Decimal
 from django import forms
 from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
+from django.db import transaction
 from django.db.models import F, Q
 from django.db.models.functions import Greatest
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import path, reverse
 from django.utils import timezone
 
+from .constants import TOWN_CHOICES
 from .models import (
     MarketListing,
     MarketOrder,
@@ -46,6 +48,7 @@ from .utils import (
     get_active_platform_settings,
     get_eligible_platform_fees,
     get_providers_with_pending_fees,
+    notify_client_migrated_to_tradie,
     send_invoice_notifications,
 )
 
@@ -55,7 +58,7 @@ from .utils import (
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     ordering = ['email']
-    list_display = ['email', 'first_name', 'last_name', 'role', 'town', 'is_market_founding_member', 'is_active', 'date_joined']
+    list_display = ['email', 'first_name', 'last_name', 'role', 'town', 'is_market_founding_member', 'is_active', 'date_joined', 'migrate_link']
     list_filter  = ['role', 'town', 'is_market_founding_member', 'is_active']
     search_fields = ['email', 'first_name', 'last_name']
     fieldsets = (
@@ -72,13 +75,83 @@ class UserAdmin(BaseUserAdmin):
         }),
     )
 
+    def migrate_link(self, obj):
+        from django.utils.html import format_html
+        if obj.role == User.ROLE_CLIENT and not hasattr(obj, 'tradie_profile'):
+            url = reverse('admin:marketplace_user_migrate_to_tradie', args=[obj.pk])
+            return format_html('<a class="button" href="{}">Migrate to Local Pro</a>', url)
+        return '—'
+    migrate_link.short_description = 'Migrate'
+
+    def get_urls(self):
+        custom = [
+            path('<int:pk>/migrate-to-tradie/', self.admin_site.admin_view(self.migrate_to_tradie_view), name='marketplace_user_migrate_to_tradie'),
+        ]
+        return custom + super().get_urls()
+
+    def migrate_to_tradie_view(self, request, pk):
+        """
+        Move a user who mistakenly registered as a client over to the local
+        professional (tradie) side — admin picks their trade(s) and service
+        town(s), a bare TradieProfile is created (pending verification, same
+        as a fresh tradie registration), and the user is emailed telling them
+        to log back in on the local pro side.
+        """
+        user = get_object_or_404(User, pk=pk)
+        if user.role != User.ROLE_CLIENT:
+            messages.error(request, f'{user} is not a client account.')
+            return redirect(reverse('admin:marketplace_user_changelist'))
+        if hasattr(user, 'tradie_profile'):
+            messages.error(request, f'{user} already has a local professional profile.')
+            return redirect(reverse('admin:marketplace_user_changelist'))
+
+        trade_choices = TradeCategory.get_choices()
+        selected_trades = []
+        selected_towns = [user.town] if user.town else []
+        business_name_value = user.full_name
+
+        if request.method == 'POST':
+            selected_trades = request.POST.getlist('trades')
+            selected_towns = request.POST.getlist('service_towns')
+            business_name_value = (request.POST.get('business_name') or '').strip()
+
+            if not selected_trades:
+                messages.error(request, 'Select at least one trade.')
+            else:
+                with transaction.atomic():
+                    user.role = User.ROLE_TRADIE
+                    user.save(update_fields=['role'])
+                    TradieProfile.objects.create(
+                        user=user,
+                        business_name=business_name_value or user.full_name,
+                        trades=selected_trades,
+                        service_towns=selected_towns or ([user.town] if user.town else []),
+                        verification_status=TradieProfile.VERIFICATION_PENDING,
+                    )
+                notify_client_migrated_to_tradie(user)
+                messages.success(request, f'{user} migrated to a local professional account and notified by email.')
+                return redirect(reverse('admin:marketplace_tradieprofile_change', args=[user.tradie_profile.pk]))
+
+        context = dict(
+            self.admin_site.each_context(request),
+            title=f'Migrate {user} to Local Professional',
+            opts=self.model._meta,
+            user_obj=user,
+            trade_choices=trade_choices,
+            town_choices=TOWN_CHOICES,
+            selected_trades=selected_trades,
+            selected_towns=selected_towns,
+            business_name_value=business_name_value,
+        )
+        return render(request, 'admin/marketplace/user/migrate_to_tradie.html', context)
+
 
 # ── TradieProfile ─────────────────────────────────────────────────────────────
 
 @admin.register(TradieProfile)
 class TradieProfileAdmin(admin.ModelAdmin):
-    list_display  = ['user', 'business_name', 'years_experience', 'service_towns_display', 'verification_status', 'has_tin_letter', 'documents_verified', 'is_founding_member', 'founding_member_credit_balance']
-    list_filter   = ['verification_status', 'documents_verified', 'is_founding_member']
+    list_display  = ['user', 'business_name', 'years_experience', 'service_towns_display', 'verification_status', 'has_tin_letter', 'documents_verified', 'needs_safety_review_display', 'is_founding_member', 'founding_member_credit_balance']
+    list_filter   = ['verification_status', 'documents_verified', 'safety_documents_reviewed', 'is_founding_member']
     search_fields = ['user__email', 'user__first_name', 'business_name', 'tin']
     raw_id_fields = ['user']
     readonly_fields = [
@@ -100,9 +173,15 @@ class TradieProfileAdmin(admin.ModelAdmin):
             'plumber_licence', 'plumber_licence_link',
         )}),
         ('Approval Status', {'fields': ('verification_status', 'documents_verified')}),
+        ('Safety Document Review', {'fields': ('safety_documents_reviewed',), 'description': (
+            'Electrical and Plumbing are safety-critical trades — tradies with either trade selected '
+            "can't bid on jobs until this is ticked on, regardless of their overall verification status. "
+            'Review their Electrical Contractors Licence / Plumber Licence above before enabling.'
+        )}),
         ('Founding Member', {'fields': ('is_founding_member', 'founding_member_credit_balance')}),
         ('Notes',            {'fields': ('verification_notes',)}),
     )
+    actions = ['mark_safety_documents_reviewed']
 
     def service_towns_display(self, obj):
         return obj.service_towns_display()
@@ -112,6 +191,17 @@ class TradieProfileAdmin(admin.ModelAdmin):
         return bool(obj.tin_letter)
     has_tin_letter.boolean = True
     has_tin_letter.short_description = 'TIN letter'
+
+    def needs_safety_review_display(self, obj):
+        if not obj.requires_safety_document_review():
+            return '—'
+        return '✅ Reviewed' if obj.safety_documents_reviewed else '⏳ Needs review'
+    needs_safety_review_display.short_description = 'Safety docs (Electrical/Plumbing)'
+
+    def mark_safety_documents_reviewed(self, request, queryset):
+        updated = queryset.update(safety_documents_reviewed=True)
+        self.message_user(request, f'Marked safety documents as reviewed for {updated} profile(s) — they can now bid on jobs.')
+    mark_safety_documents_reviewed.short_description = 'Mark safety documents as reviewed (enables bidding)'
 
     def _doc_link(self, file_field, label):
         from django.utils.html import format_html

@@ -68,15 +68,20 @@ footer{display:none;}
       {% endwith %}
     </p>
 
-    {% if profile.verification_status == 'pending' %}
+    {% if profile.is_admin_restricted %}
+    <div class="card" style="margin-bottom:18px;border:1px solid #f5a623;background:#fff3e0;">
+      <strong>Account restricted.</strong>
+      {{ profile.quote_block_reason }}
+    </div>
+    {% elif not tradie_can_quote %}
+    <div class="card" style="margin-bottom:18px;border:1px solid #ffe2a8;background:#fffaf0;">
+      <strong>Safety document review needed.</strong>
+      {{ profile.quote_block_reason }}
+    </div>
+    {% elif profile.verification_status == 'pending' %}
     <div class="card" style="margin-bottom:18px;border:1px solid #ffe2a8;background:#fffaf0;">
       <strong>Verification in progress.</strong>
       Your documents are still being reviewed by our admin team. You can browse and quote on jobs in the meantime — clients will see a "Pending verification" note on your profile and quotes until you're approved.
-    </div>
-    {% elif not tradie_can_quote %}
-    <div class="card" style="margin-bottom:18px;border:1px solid #f5a623;background:#fff3e0;">
-      <strong>Account restricted.</strong>
-      Your local professional account is {{ profile.get_verification_status_display|lower }}, so quoting and appointment requests are disabled. Please contact support.
     </div>
     {% endif %}
 
