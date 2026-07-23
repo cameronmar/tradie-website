@@ -882,6 +882,7 @@ def notify_matching_tradies_new_job(task):
     subject = f'New job posted: "{task.title}"'
     profiles = (
         TradieProfile.objects.filter(user__notify_email_new_job_match=True)
+        .exclude(user=task.client)  # local pros can post jobs too — don't notify them about their own posting
         .select_related('user')
     )
     for profile in profiles:

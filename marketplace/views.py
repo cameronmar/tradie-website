@@ -86,6 +86,16 @@ def _require_role(request, role):
         raise PermissionDenied
 
 
+def _require_task_poster(request):
+    """Gate for actions on a task the requesting user posted. Both clients
+    and local professionals can post tasks — a tradie who needs another
+    local pro doesn't need a second account for it — so this allows either
+    role. Ownership of the specific task is still enforced separately by
+    each view's client=request.user queryset filter."""
+    if not request.user.is_authenticated or request.user.role not in (User.ROLE_CLIENT, User.ROLE_TRADIE):
+        raise PermissionDenied
+
+
 def _get_tradie_profile(user):
     try:
         return user.tradie_profile
@@ -356,6 +366,7 @@ def tradie_dashboard(request):
                 town__in=profile.service_towns,
             )
             .exclude(quotes__tradie=request.user)
+            .exclude(client=request.user)  # local pros can post jobs too — don't suggest quoting on their own
             .order_by('-created_at')[:10]
         )
 
@@ -365,6 +376,10 @@ def tradie_dashboard(request):
         .order_by('-created_at')
     )
 
+    # Local pros can post jobs too (e.g. needing another local pro themselves)
+    # instead of needing a second client account — same Task.client FK either way.
+    posted_tasks = request.user.tasks.prefetch_related('quotes')
+
     provider_appointments = request.user.provider_quoting_appointments.select_related('task', 'client').prefetch_related('slots').order_by('-created_at')
     ctx = {
         'profile':         profile,
@@ -372,6 +387,10 @@ def tradie_dashboard(request):
         'accepted_quotes': my_quotes.filter(status=Quote.STATUS_ACCEPTED),
         'completed_tasks': request.user.assigned_tasks.filter(status=Task.STATUS_COMPLETED),
         'nearby_tasks':    nearby,
+        'posted_open_tasks':      posted_tasks.filter(status=Task.STATUS_OPEN),
+        'posted_assigned_tasks':  posted_tasks.filter(status=Task.STATUS_ASSIGNED),
+        'posted_completed_tasks': posted_tasks.filter(status=Task.STATUS_COMPLETED),
+        'posted_new_quotes':      Quote.objects.filter(task__client=request.user, status=Quote.STATUS_PENDING).count(),
         'review_count':    PublicReview.objects.filter(ratee=request.user).count(),
         'avg_rating':      (
             PublicReview.objects.filter(ratee=request.user)
@@ -483,7 +502,7 @@ def browse_tradies(request):
 
 @login_required
 def post_task(request):
-    _require_role(request, User.ROLE_CLIENT)
+    _require_task_poster(request)
     form = TaskForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
         task = form.save(commit=False)
@@ -522,7 +541,7 @@ def task_detail(request, pk):
         tradie_can_quote = tradie_profile.can_quote() if tradie_profile else False
         if tradie_profile and tradie_profile.is_founding_member:
             founding_credit_balance = tradie_profile.founding_member_credit_balance
-        if u.role == User.ROLE_TRADIE and tradie_can_quote and task.status == Task.STATUS_OPEN:
+        if u.role == User.ROLE_TRADIE and tradie_can_quote and task.status == Task.STATUS_OPEN and u != task.client:
             try:
                 user_quote = quotes.get(tradie=u)
             except Quote.DoesNotExist:
@@ -540,6 +559,7 @@ def task_detail(request, pk):
         and request.user.role == User.ROLE_TRADIE
         and tradie_can_quote
         and task.status == Task.STATUS_OPEN
+        and request.user != task.client
     )
     user_has_appointment = request.user.is_authenticated and appointments.filter(provider=request.user).exists()
 
@@ -605,6 +625,9 @@ def submit_quote(request, pk):
     if approval_redirect:
         return approval_redirect
     task = get_object_or_404(Task, pk=pk, status=Task.STATUS_OPEN)
+    if task.client == request.user:
+        flash.error(request, "You can't quote on your own job posting.")
+        return redirect('task_detail', pk=pk)
     if Quote.objects.filter(task=task, tradie=request.user).exists():
         flash.error(request, 'You have already quoted on this task.')
         return redirect('task_detail', pk=pk)
@@ -716,6 +739,9 @@ def book_quoting_appointment(request, pk):
     if approval_redirect:
         return approval_redirect
     task = get_object_or_404(Task, pk=pk, status=Task.STATUS_OPEN)
+    if task.client == request.user:
+        flash.error(request, "You can't request a quoting appointment on your own job posting.")
+        return redirect('task_detail', pk=pk)
     existing_appointments = task.quoting_appointments.filter(provider=request.user).prefetch_related('slots').order_by('-created_at')
     form = QuotingAppointmentForm(request.POST or None)
     if request.method == 'POST' and form.is_valid():
@@ -731,7 +757,7 @@ def book_quoting_appointment(request, pk):
 
 @login_required
 def accept_quoting_appointment_slot(request, pk, appt_pk, slot_pk):
-    _require_role(request, User.ROLE_CLIENT)
+    _require_task_poster(request)
     task = get_object_or_404(Task, pk=pk, client=request.user)
     appointment = get_object_or_404(QuotingAppointment, pk=appt_pk, task=task, status=QuotingAppointment.STATUS_REQUESTED)
     slot = get_object_or_404(QuotingAppointmentSlot, pk=slot_pk, quoting_appointment=appointment)
@@ -747,7 +773,7 @@ def accept_quoting_appointment_slot(request, pk, appt_pk, slot_pk):
 
 @login_required
 def decline_quoting_appointment(request, pk, appt_pk):
-    _require_role(request, User.ROLE_CLIENT)
+    _require_task_poster(request)
     task = get_object_or_404(Task, pk=pk, client=request.user)
     appointment = get_object_or_404(QuotingAppointment, pk=appt_pk, task=task, status=QuotingAppointment.STATUS_REQUESTED)
     appointment.status = QuotingAppointment.STATUS_DECLINED
@@ -772,7 +798,7 @@ def cancel_quoting_appointment(request, pk, appt_pk):
 
 @login_required
 def accept_quote(request, pk, qpk):
-    _require_role(request, User.ROLE_CLIENT)
+    _require_task_poster(request)
     task  = get_object_or_404(Task, pk=pk, client=request.user, status=Task.STATUS_OPEN)
     quote = get_object_or_404(Quote, pk=qpk, task=task, status=Quote.STATUS_PENDING)
     # Accept this quote, decline all others
@@ -790,7 +816,7 @@ def accept_quote(request, pk, qpk):
 
 @login_required
 def complete_task(request, pk):
-    _require_role(request, User.ROLE_CLIENT)
+    _require_task_poster(request)
     task = get_object_or_404(Task, pk=pk, client=request.user, status=Task.STATUS_ASSIGNED)
     task.status = Task.STATUS_COMPLETED
     task.completed_at = timezone.now()
@@ -808,7 +834,7 @@ def complete_task(request, pk):
 
 @login_required
 def rate_tradie(request, pk):
-    _require_role(request, User.ROLE_CLIENT)
+    _require_task_poster(request)
     task = get_object_or_404(Task, pk=pk, client=request.user, status=Task.STATUS_COMPLETED)
     if PublicReview.objects.filter(task=task, rater=request.user).exists():
         flash.info(request, 'You have already reviewed this job.')

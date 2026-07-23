@@ -48,6 +48,8 @@ footer{display:none;}
     <a href="{% url 'tradie_dashboard' %}" class="sb-link active"><span class="icon">🏠</span>Dashboard</a>
     <a href="{% url 'browse_tasks' %}" class="sb-link"><span class="icon">🔍</span>Find tasks</a>
     {% if user.pk %}<a href="{% url 'tradie_profile' user.pk %}" class="sb-link"><span class="icon">👤</span>My profile</a>{% endif %}
+    <div class="sb-lbl" style="margin-top:10px;">Hiring?</div>
+    <a href="{% url 'post_task' %}" class="sb-link"><span class="icon">➕</span>Post a job</a>
     <div class="sb-lbl" style="margin-top:10px;">Account</div>
     <a href="{% url 'inbox' %}" class="sb-link"><span class="icon">💬</span>Messages</a>
     <a href="{% url 'notices' %}" class="sb-link"><span class="icon">🔔</span>Notices</a>
@@ -122,13 +124,13 @@ footer{display:none;}
         <div class="job-meta">
           <span>{{ q.task.category_label }}</span>
           <span>📍 {{ q.task.town }}</span>
-          <span>Client: {{ q.task.client.first_name }}</span>
+          <span>Posted by: {{ q.task.client.first_name }}</span>
         </div>
       </div>
       <div class="job-right">
         <span class="chip chip-accepted">Accepted</span>
         <span class="fw-bold text-blue">FJD ${{ q.price }}</span>
-        <a href="{% url 'conversation' q.task.pk q.task.client.pk %}" class="btn btn-sm" style="background:#f0f5f8;color:var(--blue);">Message client</a>
+        <a href="{% url 'conversation' q.task.pk q.task.client.pk %}" class="btn btn-sm" style="background:#f0f5f8;color:var(--blue);">Message</a>
       </div>
     </div>
     {% endfor %}
@@ -140,11 +142,56 @@ footer{display:none;}
     <div class="job-row">
       <div>
         <div class="job-title"><a href="{% url 'task_detail' t.pk %}" style="text-decoration:none;color:inherit;">{{ t.title }}</a></div>
-        <div class="job-meta"><span>{{ t.category_label }}</span><span>📍 {{ t.town }}</span><span>Client: {{ t.client.first_name }}</span></div>
+        <div class="job-meta"><span>{{ t.category_label }}</span><span>📍 {{ t.town }}</span><span>Posted by: {{ t.client.first_name }}</span></div>
       </div>
       <div class="job-right">
         <span class="chip chip-completed">Done</span>
         <a href="{% url 'task_detail' t.pk %}" class="btn btn-sm" style="background:#f0f5f8;color:var(--blue);">View</a>
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if posted_open_tasks or posted_assigned_tasks or posted_completed_tasks %}
+    <div class="sec-hdr" style="margin-top:22px;">
+      <h2>Jobs I've posted{% if posted_new_quotes %} <span class="chip chip-pending">{{ posted_new_quotes }} new quote{{ posted_new_quotes|pluralize }}</span>{% endif %}</h2>
+      <a href="{% url 'post_task' %}" class="btn btn-primary btn-sm">+ Post a job</a>
+    </div>
+    {% for t in posted_open_tasks %}
+    <div class="job-row">
+      <div>
+        <div class="job-title"><a href="{% url 'task_detail' t.pk %}" style="text-decoration:none;color:inherit;">{{ t.title }}</a></div>
+        <div class="job-meta"><span>{{ t.category_label }}</span><span>📍 {{ t.town }}</span><span>💬 {{ t.quote_count }} quote{{ t.quote_count|pluralize }}</span></div>
+      </div>
+      <div class="job-right">
+        <span class="chip chip-open">Open</span>
+        <span class="fw-bold text-blue">FJD ${{ t.budget }}</span>
+        <a href="{% url 'task_detail' t.pk %}" class="btn btn-sm" style="background:#f0f5f8;color:var(--blue);">View</a>
+      </div>
+    </div>
+    {% endfor %}
+    {% for t in posted_assigned_tasks %}
+    <div class="job-row">
+      <div>
+        <div class="job-title"><a href="{% url 'task_detail' t.pk %}" style="text-decoration:none;color:inherit;">{{ t.title }}</a></div>
+        <div class="job-meta"><span>{{ t.category_label }}</span><span>📍 {{ t.town }}</span>{% if t.assigned_tradie %}<span>🔧 {{ t.assigned_tradie.full_name }}</span>{% endif %}</div>
+      </div>
+      <div class="job-right">
+        <span class="chip chip-assigned">Assigned</span>
+        <span class="fw-bold text-blue">FJD ${{ t.budget }}</span>
+        <a href="{% url 'task_detail' t.pk %}" class="btn btn-sm" style="background:#f0f5f8;color:var(--blue);">View</a>
+      </div>
+    </div>
+    {% endfor %}
+    {% for t in posted_completed_tasks %}
+    <div class="job-row">
+      <div>
+        <div class="job-title"><a href="{% url 'task_detail' t.pk %}" style="text-decoration:none;color:inherit;">{{ t.title }}</a></div>
+        <div class="job-meta"><span>{{ t.category_label }}</span><span>📍 {{ t.town }}</span>{% if t.assigned_tradie %}<span>🔧 {{ t.assigned_tradie.full_name }}</span>{% endif %}</div>
+      </div>
+      <div class="job-right">
+        <span class="chip chip-completed">Done</span>
+        <a href="{% url 'task_detail' t.pk %}" class="btn btn-sm" style="background:#f0f5f8;color:var(--blue);">View / Review</a>
       </div>
     </div>
     {% endfor %}
@@ -158,7 +205,7 @@ footer{display:none;}
         <div class="job-title"><a href="{% url 'task_detail' appt.task.pk %}" style="text-decoration:none;color:inherit;">{{ appt.task.title }}</a></div>
         <div class="job-meta">
           <span>📍 {{ appt.task.town }}</span>
-          <span>Client: {{ appt.client.first_name }}</span>
+          <span>Posted by: {{ appt.client.first_name }}</span>
           {% if appt.selected_slot %}
             <span>📅 Confirmed: {{ appt.selected_slot.proposed_date }} {{ appt.selected_slot.start_time|time:"H:i" }}–{{ appt.selected_slot.end_time|time:"H:i" }}</span>
           {% else %}

@@ -86,9 +86,9 @@
     <div>
       <div class="results-hdr">
         <span>Showing <strong>{{ tasks|length }} task{{ tasks|length|pluralize }}</strong> {% if town_filter %}in {{ town_filter }}{% endif %}</span>
-        {% if user.is_authenticated and user.role == 'client' %}
+        {% if user.is_authenticated %}{% if user.role == 'client' or user.role == 'tradie' %}
           <a href="{% url 'post_task' %}" class="btn btn-primary btn-sm">+ Post a task</a>
-        {% endif %}
+        {% endif %}{% endif %}
       </div>
 
       <div class="task-list">
@@ -123,9 +123,9 @@
         <div class="empty">
           <p style="font-size:1.5rem">🔍</p>
           <p>No open tasks match your search.</p>
-          {% if user.is_authenticated and user.role == 'client' %}
+          {% if user.is_authenticated %}{% if user.role == 'client' or user.role == 'tradie' %}
             <a href="{% url 'post_task' %}" class="btn btn-primary btn-sm">Post the first task</a>
-          {% endif %}
+          {% endif %}{% endif %}
         </div>
         {% endfor %}
       </div>

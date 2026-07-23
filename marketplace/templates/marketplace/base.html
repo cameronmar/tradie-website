@@ -20,7 +20,7 @@
       <a href="{% url 'browse_tradies' %}">Find a Local Professional</a>
       <a href="{% url 'market_browse' %}">Market</a>
       {% if user.is_authenticated %}
-        {% if user.role == 'client' %}
+        {% if user.role == 'client' or user.role == 'tradie' %}
           <a href="{% url 'post_task' %}">Post a Job</a>
         {% endif %}
         <a href="{% url 'inbox' %}">Messages</a>
