@@ -13,7 +13,7 @@
 .pro-grid{display:grid;gap:18px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));padding:26px 0 30px;}
 .pc{background:var(--white);border-radius:16px;box-shadow:0 4px 18px rgba(0,80,120,.08);overflow:hidden;text-decoration:none;color:inherit;display:block;transition:box-shadow .2s;padding:18px;}
 .pc:hover{box-shadow:0 8px 28px rgba(0,80,120,.14);}
-.pc-name{font-size:1.02rem;font-weight:700;margin-bottom:2px;}
+.pc-name{font-size:1.02rem;font-weight:700;margin-bottom:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 .pc-business{font-size:.82rem;color:var(--muted);margin-bottom:8px;}
 .pc-trades{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px;}
 .pc-trade{background:var(--blue-light);color:var(--blue);border-radius:16px;padding:3px 10px;font-size:.72rem;font-weight:700;}
@@ -28,7 +28,7 @@
 <div class="pro-hdr">
   <div class="container">
     <h1>🔍 Find a local professional</h1>
-    <p>Browse verified local professionals by trade and town.</p>
+    <p>Browse local professionals by trade and town. Some are still awaiting verification — look for the "Pending verification" badge.</p>
     <form method="get" class="pro-filters">
       <input type="text" name="q" placeholder="Search by name or business…" value="{{ keyword_filter }}">
       <select name="category">
@@ -52,7 +52,10 @@
   <div class="pro-grid">
     {% for profile in profiles %}
     <a href="{% url 'tradie_profile' profile.user.pk %}" class="pc">
-      <div class="pc-name">{{ profile.user.full_name }}</div>
+      <div class="pc-name">
+        {{ profile.user.full_name }}
+        {% if profile.verification_status == 'pending' %}<span class="chip chip-pending" title="This local professional's documents are still being reviewed by our admin team.">⏳ Pending verification</span>{% endif %}
+      </div>
       {% if profile.business_name %}<div class="pc-business">{{ profile.business_name }}</div>{% endif %}
       <div class="pc-trades">
         {% for label in profile.trades_display %}

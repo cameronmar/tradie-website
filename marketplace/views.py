@@ -435,16 +435,22 @@ def browse_tradies(request):
     # noted elsewhere (Sponsor.placements, MarketListing.available_dates):
     # containment queries don't behave identically on SQLite vs Postgres, so
     # those two filters are applied in Python over the already-narrowed
-    # (approved-only, optionally keyword-filtered) queryset rather than at
-    # the DB level.
+    # (optionally keyword-filtered) queryset rather than at the DB level.
+    #
+    # Pending tradies are shown too (with a "Pending verification" badge in
+    # the template) — same "browse while awaiting verification" policy as
+    # quoting itself (TradieProfile.can_quote()). Rejected/suspended accounts
+    # are excluded outright.
     category = request.GET.get('category', '').strip()
     town     = request.GET.get('town', '').strip()
     keyword  = request.GET.get('q', '').strip()
 
     qs = (
-        TradieProfile.objects.filter(verification_status=TradieProfile.VERIFICATION_APPROVED)
+        TradieProfile.objects.filter(
+            verification_status__in=[TradieProfile.VERIFICATION_PENDING, TradieProfile.VERIFICATION_APPROVED]
+        )
         .select_related('user')
-        .order_by('business_name')
+        .order_by('verification_status', 'business_name')
     )
     if keyword:
         qs = qs.filter(
