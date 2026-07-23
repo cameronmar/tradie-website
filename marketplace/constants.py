@@ -20,6 +20,13 @@ TRADE_CHOICES = [
     ('nanny',       '👶 Nanny'),
     ('tutor',       '📚 Tutor'),
     ('swim_coach',  '🏊 Swim Coach'),
+    ('joiner',      '🪵 Joiner'),
+    ('tiler',       '🧱 Tiler'),
+    ('roofer',      '🏠 Roofer'),
+    ('plasterer',   '🪣 Plasterer'),
+    ('welder',      '🔥 Welder'),
+    ('fencing',     '🚧 Fencing'),
+    ('solar',       '☀️ Solar Installation'),
 ]
 
 TOWN_CHOICES = [
