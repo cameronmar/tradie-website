@@ -467,6 +467,15 @@ class PublicReviewAdmin(admin.ModelAdmin):
     source_display.short_description = 'Job / source'
 
     def overall_display(self, obj):
+        # obj is a blank unsaved instance on the Add page — most of the score
+        # fields have no default (None), so obj.overall's sum would raise a
+        # TypeError there. Only compute it once every score is actually set.
+        scores = [
+            obj.reliability_punctuality, obj.quote_price_accuracy, obj.value_for_money,
+            obj.service_quality_workmanship, obj.communication_after_service, obj.timeline_schedule_delivery,
+        ]
+        if any(s is None for s in scores):
+            return '—'
         return f'{obj.overall:.1f} / 5'
     overall_display.short_description = 'Overall (computed)'
     overall_display.readonly = True
