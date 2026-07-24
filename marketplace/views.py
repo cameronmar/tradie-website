@@ -14,7 +14,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST
 from django.core.exceptions import PermissionDenied
 from django.db import DatabaseError, connection, transaction
-from django.db.models import Avg, F, Q
+from django.db.models import Avg, Count, F, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -491,10 +491,31 @@ def browse_tradies(request):
     if town:
         profiles = [p for p in profiles if town in (p.service_towns or [])]
 
+    # Bulk-aggregate ratings in a single query rather than the two per-profile
+    # queries get_public_rating_breakdown()/public_completed_job_count() would
+    # otherwise run (N+1 — this page isn't paginated, so a growing directory
+    # would mean a growing number of extra queries per request).
+    rating_rows = (
+        PublicReview.objects.filter(ratee_id__in=[p.user_id for p in profiles])
+        .values('ratee_id')
+        .annotate(
+            avg_reliability=Avg('reliability_punctuality'), avg_price=Avg('quote_price_accuracy'),
+            avg_value=Avg('value_for_money'), avg_quality=Avg('service_quality_workmanship'),
+            avg_comm=Avg('communication_after_service'), avg_timeline=Avg('timeline_schedule_delivery'),
+            review_count=Count('id'),
+        )
+    )
+    rating_map = {}
+    for row in rating_rows:
+        total = sum(row[k] for k in (
+            'avg_reliability', 'avg_price', 'avg_value', 'avg_quality', 'avg_comm', 'avg_timeline'
+        ))
+        rating_map[row['ratee_id']] = {'overall': round(total / 6, 1), 'count': row['review_count']}
+
     for p in profiles:
-        breakdown = p.get_public_rating_breakdown()
-        p.overall_rating = round(breakdown['overall'], 1) if breakdown else None
-        p.review_count = p.public_completed_job_count()
+        r = rating_map.get(p.user_id)
+        p.overall_rating = r['overall'] if r else None
+        p.review_count = r['count'] if r else 0
 
     return render(request, 'marketplace/browse_tradies.html', {
         'profiles':         profiles,

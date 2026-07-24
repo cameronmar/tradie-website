@@ -427,19 +427,44 @@ class MessageAdmin(admin.ModelAdmin):
 
 # ── Public review ─────────────────────────────────────────────────────────────
 
+class HasTaskFilter(admin.SimpleListFilter):
+    title = 'source'
+    parameter_name = 'source'
+
+    def lookups(self, request, model_admin):
+        return (('platform', 'Platform job'), ('historical', 'Historical (admin-added)'))
+
+    def queryset(self, request, queryset):
+        if self.value() == 'platform':
+            return queryset.filter(task__isnull=False)
+        if self.value() == 'historical':
+            return queryset.filter(task__isnull=True)
+        return queryset
+
+
 @admin.register(PublicReview)
 class PublicReviewAdmin(admin.ModelAdmin):
-    list_display  = ['task', 'rater', 'ratee', 'reliability_punctuality', 'timeline_schedule_delivery', 'service_quality_workmanship', 'overall_display', 'created_at']
-    search_fields = ['rater__email', 'ratee__email', 'task__title']
+    list_display  = ['ratee', 'rater', 'source_display', 'reliability_punctuality', 'timeline_schedule_delivery', 'service_quality_workmanship', 'overall_display', 'created_at']
+    list_filter   = [HasTaskFilter, 'created_at']
+    search_fields = ['rater__email', 'ratee__email', 'task__title', 'admin_note']
     raw_id_fields = ['task', 'rater', 'ratee']
     readonly_fields = ['created_at', 'overall_display']
     fieldsets = (
-        ('Review Assignment', {'fields': ('task', 'rater', 'ratee')}),
+        ('Review Assignment', {'fields': ('task', 'rater', 'ratee'), 'description': (
+            'To edit or correct an existing review (e.g. a malicious one), just change its scores/comment below. '
+            'To add a NEW review — e.g. for a local pro you\'ve worked with before they joined the platform — '
+            'leave "task" blank, pick any rater (yourself or the client who worked with them), and fill in '
+            '"Context" under Comment instead of a job.'
+        )}),
         ('Criteria Scores', {'fields': ('reliability_punctuality', 'quote_price_accuracy', 'value_for_money', 'service_quality_workmanship', 'communication_after_service', 'timeline_schedule_delivery', 'overall_display')}),
-        ('Comment', {'fields': ('comment',)}),
+        ('Comment', {'fields': ('comment', 'admin_note')}),
         ('Timestamps', {'fields': ('created_at',)}),
     )
     date_hierarchy = 'created_at'
+
+    def source_display(self, obj):
+        return obj.task if obj.task else f'📝 {obj.admin_note or "Historical"}'
+    source_display.short_description = 'Job / source'
 
     def overall_display(self, obj):
         return f'{obj.overall:.1f} / 5'

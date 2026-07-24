@@ -573,7 +573,11 @@ SCORE_CHOICES    = [(i, str(i)) for i in range(1, 6)]
 
 
 class PublicReview(models.Model):
-    task               = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='public_reviews')
+    # Nullable: normal reviews go through a completed Task, but an admin can
+    # also add a review with no task attached — for a local pro's past work
+    # (before they joined the platform) or to correct/replace a malicious
+    # review without a real job to point it at. See admin_note below.
+    task               = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='public_reviews', null=True, blank=True)
     rater              = models.ForeignKey(User, on_delete=models.CASCADE, related_name='public_reviews_given')
     ratee              = models.ForeignKey(User, on_delete=models.CASCADE, related_name='public_reviews_received')
     # Six public rating criteria for all service providers.
@@ -584,6 +588,11 @@ class PublicReview(models.Model):
     communication_after_service  = models.IntegerField(choices=SCORE_CHOICES, validators=SCORE_VALIDATORS)
     timeline_schedule_delivery   = models.IntegerField(choices=SCORE_CHOICES, validators=SCORE_VALIDATORS, default=5)
     comment                    = models.TextField(blank=True)
+    admin_note = models.CharField(
+        max_length=200, blank=True,
+        verbose_name='Context (shown publicly in place of a job title when no task is linked)',
+        help_text='e.g. "Renovated my kitchen, 2024" — for a review added without a platform job.',
+    )
     created_at         = models.DateTimeField(auto_now_add=True)
 
     objects = PublicReviewManager()

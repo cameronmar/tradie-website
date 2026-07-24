@@ -133,7 +133,13 @@
               <div class="rev-stars">{% with ov=r.overall %}{% for i in "12345" %}{% if forloop.counter <= ov %}★{% else %}☆{% endif %}{% endfor %}{% endwith %}</div>
             </div>
             {% if r.comment %}<p class="rev-text">{{ r.comment }}</p>{% endif %}
-            <div class="rev-job">Job: {{ r.task.title }}</div>
+            {% if r.task %}
+              <div class="rev-job">Job: {{ r.task.title }}</div>
+            {% elif r.admin_note %}
+              <div class="rev-job">{{ r.admin_note }}</div>
+            {% else %}
+              <div class="rev-job" style="font-style:italic;">Past experience — added by our team</div>
+            {% endif %}
           </div>
           {% endfor %}
         {% else %}
